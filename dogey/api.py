@@ -2,8 +2,8 @@
 """
 import asyncio
 from asyncio.events import AbstractEventLoop
-from json import dumps, loads, load
-from typing import Any, Awaitable, Callable, Dict, List
+from json import dumps, loads
+from typing import Any, Awaitable, Callable, Dict, Type
 from uuid import uuid4
 from inspect import getmembers, ismethod, getfullargspec
 
@@ -32,24 +32,38 @@ class Dogey():
             logging_enabled (bool): Whether or not debug logs should be output
         """
 
+        self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool})
+
         # Private variables
-        """ Events and commands, added at runtime """
+        """ Events and commands, added at runtime. """
         self.__events: Dict[str, Callable] = {}
         self.__commands: Dict[str, Callable] = {}
 
-        """ Essential for new_tokens(if readded) and logging in """
+        """ Essential for logging in """
         self.__token: str = token
         self.__refresh_token: str = refresh_token
 
         """ Other """
+        """ The main loop handling tasks etc. Also useful where async context can't be maintained. """
         self.__loop: AbstractEventLoop = asyncio.get_event_loop()
+
+        """ The main websockets object. Handles sending and recieving packets. May need a second one for threading in fetching. """
         self.__wss: WebSocketClientProtocol = None
+
+        """ Indicates if the bot has established a connection to dogehouse. """
         self.__has_started: bool = False
+
+        """ Indicates if __log will print to the console. Can be changed later on by set_debug_state. """
         self.__logging_enabled = logging_enabled
 
         # Public variables
+        """ The main bot class. Useful for use in on_ready where bot details are essential. """
         self.bot: BotUser = BotUser('', '', prefix)
+
+        """ The current room of Dogey. """
         self.current_room: int = None
+
+        """ Room-related variables. One holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
         self.room_members: Dict[str, User] = {}
         self.room_details: Dict[str, Room] = {}
 
@@ -61,6 +75,7 @@ class Dogey():
             InstanceAlreadyCreated: For when a Dogey instance is already running.
         """
         if not self.__has_started:
+            """ Apparently, tokens have specific lengths. """
             if len(self.__token) == 296 and len(self.__refresh_token) == 319:
                 self.__loop.run_until_complete(self.__recv_loop())
             else:
@@ -189,6 +204,15 @@ class Dogey():
     def __log(self, text: str) -> None:
         if self.__logging_enabled:
             print(text)
+
+    def __assert_items(self, checks: Dict[Any, Type]) -> None:
+        """Asserts that a number of arguments are of the specified type
+
+        Args:
+            checks (Dict[Any, Type]): The argument and the required type
+        """
+        for item, check in checks.items():
+            assert isinstance(item, check)
 
     """ Bot methods, normal """
 
