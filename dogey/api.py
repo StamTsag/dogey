@@ -48,7 +48,7 @@ class Dogey():
         self.__logging_enabled = logging_enabled
 
         # Public variables
-        self.bot: BotUser = BotUser('', '', prefix)  # TODO: Fetch user info
+        self.bot: BotUser = BotUser('', '', prefix)
         self.current_room: int = None
         self.room_members: Dict[str, User] = {}
         self.room_details: Dict[str, Room] = {}
@@ -117,7 +117,6 @@ class Dogey():
         Args:
             command_name (str): The command name
         """
-        #TODO: Context
         target = self.__commands[ctx.command_name]
         target_args = getfullargspec(target)
 
@@ -148,7 +147,7 @@ class Dogey():
                 else:
                     self.__loop.create_task(target(ctx, *ctx.arguments))
             elif target_args.kwonlyargs and not target_args.varargs:
-                pass  # TODO
+                pass
             else:
                 pass_kwargs = ctx.arguments
                 pass_args = []

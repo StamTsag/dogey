@@ -14,9 +14,8 @@ async def on_ready():
 
 
 @dogey.event
-async def on_room_created(room_id: str):
+async def on_room_created(room: Room):
     # Dogey auto saves both room details and room members when you get in a room
-    room = dogey.room_details[room_id]
     print(f'Created room: {room.name}')
 
 
