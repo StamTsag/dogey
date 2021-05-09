@@ -14,7 +14,7 @@
 
 * #### pip
 
-### [Guide](#guide)
+### [Guide](#installation-guide)
 * #### ```git clone``` this repository
 
 * #### ```cd dogey```
@@ -23,7 +23,9 @@
 
 * #### You can now ```import dogey``` in any of your programs
 
-### [Contributing](#contributing)
+## [Contributing](#contributing)
+
+### [Guide](#contributing-guide)
 
 * #### ```pip install autopep8```
 
