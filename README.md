@@ -1,7 +1,46 @@
-# A VERY basic dogehouse python API
+# Dogey, a pythonic <a href='https://github.com/benawad/dogehouse'>dogehouse</a> API
 
-#### This API offers the most basic events one would want from dogehouse
+## [Reasons to use Dogey](#reasons)
 
-#### Anyone can try to contribute, but it will most likely not stay up to date
+* ### Similar syntax to other APIs such as <a href='https://github.com/Rapptz/discord.py'>discord.py</a>
 
-#### ``cd`` in this directory then ``pip install .`` to use it in other projects
+* ### Always updated with the latest additions to dogehouse
+
+## [Installation](#installation)
+
+### [Requirements](#requirements)
+
+* #### python3
+
+* #### pip
+
+### [Guide](#guide)
+* #### ```git clone``` this repository
+
+* #### ```cd dogey```
+
+* #### ```pip install .```
+
+* #### You can now ```import dogey``` in any of your programs
+
+### [Contributing](#contributing)
+
+* #### ```pip install autopep8```
+
+* #### ```cd {dogey repository}```
+
+* #### ```pip install -e .``` Optional but speeds up changes(auto installs every time it is updated)
+
+* #### And after modifying something always test your changes and ```git ls-files | grep '\.py' | xargs autopep8 --in-place```
+
+* #### Pull Request every new feature/change added, not a bunch of changes at once
+
+* #### If you don't feel like modifying the api but want to contribute, suggest new examples
+
+* #### Suggest a feature in the Issues tab or dm in discord(Shadofer#7312)
+
+### [Future plans](#plans)
+
+* #### Add documentation
+
+* #### Upload to pypi

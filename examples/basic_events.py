@@ -1,29 +1,38 @@
-from dogey.api import Dogey, event
-import time
-from time import strftime
-import asyncio
+from dogey import Dogey
+from dogey.classes import Message, User, Room
 
-dogey = Dogey(token='your token', refresh_token = 'your refresh token', prefix='d')
+dogey = Dogey(token='your token',
+              refresh_token='your refresh token', prefix='d')
 
-@event
+bot = dogey.bot
+
+
+@dogey.event
 async def on_ready():
-    print('bot up')
-    await dogey.create_room('only bots', is_private=False)
+    print(f'{bot.name} is up! (prefix is {bot.prefix})')
+    await dogey.create_room('dogey.py', description='A simple event example bot', is_private=False)
 
-@event
-async def on_room_created(roomId: str):
-    print(f'{roomId} created.')
 
-@event
-async def on_user_join(roomId: str, userId: str):
-    await dogey.send(f'hi, {userId}')
+@dogey.event
+async def on_room_created(room_id: str):
+    # Dogey auto saves both room details and room members when you get in a room
+    room = dogey.room_details[room_id]
+    print(f'Created room: {room.name}')
 
-@event
-async def on_user_leave(roomId: str, userId: str):
-    print(f'{userId} has left {roomId}')
 
-@event
-async def on_message(msg):
-    print(msg)
+@dogey.event
+async def on_user_join(user: User, room: Room):
+    await dogey.send(f'Welcome {user.username} to {room.name}!')
+
+
+@dogey.event
+async def on_user_leave(user: User, room: Room):
+    print(f'User {user.username} has left {room.name}')
+
+
+@dogey.event
+async def on_message(message: Message):
+    author: User = dogey.room_members[message.sent_from]
+    print(f'A message has been sent by {author.username}: {message.content}')
 
 dogey.start()
