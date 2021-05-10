@@ -67,6 +67,9 @@ class Dogey():
         """ Room-related variables. One holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
         self.room_members: Dict[str, User] = {}
         self.room_details: Dict[str, Room] = {}
+        # to get in room_unban_reply
+        self.banned_room_members: Dict[str, User] = {}
+        self.last_banned_user: str = ''
 
     def start(self):
         """Starts the Dogey websocket connection
@@ -268,7 +271,7 @@ class Dogey():
         """Joins a room by id
 
         Args:
-            id (int): The id of the target room
+            id (int): The id of the room
         """
         self.__assert_items({id: int})
         await self.__send_wss('room:join', {'roomId': id})
@@ -287,7 +290,7 @@ class Dogey():
         """Fetches a user's info
 
         Args:
-            user_id (int): The id of a user
+            user_id (int): The id of the user
         """
         self.__assert_items({user_id: str})
         await self.__send_wss('user:get_info', {'userIdOrUsername': user_id})
@@ -329,6 +332,30 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
         await self.__send_wss('chat:unban', {'userId': user_id})
+
+    async def room_ban(self, user_id: str, ip_ban: bool = False) -> None:
+        """Ban a user from the current room
+
+        Args:
+            user_id (str): The id of the user
+            ip_ban (bool, optional): Whether or not it should also ban his IP. Defaults to False.
+        """
+        self.__assert_items({user_id: str, ip_ban: bool})
+        user = self.room_members[user_id]
+        await self.__send_wss('room:ban', {'userId': user_id, 'shouldBanIp': ip_ban})
+        """ No reply for room:ban, do it ourselves """
+        self.banned_room_members[user.id] = user
+        self.last_banned_user = user.id
+        self.__try_event('on_room_user_banned', user)
+
+    async def room_unban(self, user_id: str) -> None:
+        """Unbans a user from the current room
+
+        Args:
+            user_id (str): The id of the user
+        """
+        self.__assert_items({user_id: str})
+        await self.__send_wss('room:unban', {'userId': user_id})
 
     """ Event callers, hidden, from resfunc """
 
@@ -482,6 +509,12 @@ class Dogey():
         assert isinstance(response, dict)
         self.__try_event('on_chat_user_unbanned',
                          self.room_members[response['d']['userId']])
+
+    def __room_unban_reply(self, response: dict) -> None:
+        assert isinstance(response, dict)
+        user = self.banned_room_members[self.last_banned_user]
+        del self.banned_room_members[self.last_banned_user]
+        self.__try_event('on_room_user_unbanned', user)
 
     """ Decorators """
 

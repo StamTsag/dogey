@@ -5,6 +5,7 @@ dogey = Dogey(token='your token',
               refresh_token='your refresh token', prefix='.')
 
 bot = dogey.bot
+bot_owner = 'your_id'
 
 
 @dogey.event
@@ -33,17 +34,25 @@ async def doiexist(ctx: Context):
 
 @dogey.command
 async def mute(ctx: Context):
-    await dogey.set_muted(not bot.muted)
+    # Prevent others from muting your bot
+    if ctx.author.id == bot_owner:
+        await dogey.set_muted(not bot.muted)
 
 
 @dogey.command
 async def deafen(ctx: Context):
-    await dogey.set_deafened(not bot.deafened)
+    if ctx.author.id == bot_owner:
+        await dogey.set_deafened(not bot.deafened)
 
 
 @dogey.command
 async def chatbanme(ctx: Context):
     await dogey.chat_ban(ctx.author.id)
+
+
+@dogey.command
+async def roombanme(ctx: Context):
+    await dogey.room_ban(ctx.author.id)
 
 
 @dogey.event
@@ -64,5 +73,10 @@ async def on_deafen_changed():
 @dogey.event
 async def on_chat_user_banned(user: User):
     await dogey.send(f'{user.username} has been chat-banned.')
+
+
+@dogey.event
+async def on_room_user_banned(user: User):
+    await dogey.send(f'{user.username} has been banned.')
 
 dogey.start()
