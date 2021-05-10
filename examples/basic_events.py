@@ -21,6 +21,7 @@ async def on_room_created(room: Room):
 
 @dogey.event
 async def on_user_join(user: User, room: Room):
+    print(f'{user.username} has joined {room.name}')
     await dogey.send(f'Welcome {user.username} to {room.name}!')
 
 
