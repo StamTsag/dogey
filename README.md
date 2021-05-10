@@ -1,20 +1,20 @@
 # Dogey, a pythonic <a href='https://github.com/benawad/dogehouse'>dogehouse</a> API
 
-## [Reasons to use Dogey](#reasons)
+## Reasons to use Dogey
 
 * ### Similar syntax to other APIs such as <a href='https://github.com/Rapptz/discord.py'>discord.py</a>
 
 * ### Always updated with the latest additions to dogehouse
 
-## [Installation](#installation)
+## Installation
 
-### [Requirements](#requirements)
+### Requirements
 
 * #### python3
 
 * #### pip
 
-### [Guide](#installation-guide)
+### Guide
 * #### ```git clone``` this repository
 
 * #### ```cd dogey```
@@ -23,9 +23,9 @@
 
 * #### You can now ```import dogey``` in any of your programs
 
-## [Contributing](#contributing)
+## Contributing
 
-### [Guide](#contributing-guide)
+### Guide
 
 * #### ```pip install autopep8```
 
@@ -41,7 +41,7 @@
 
 * #### Suggest a feature in the Issues tab or dm in discord(Shadofer#7312)
 
-### [Future plans](#plans)
+## Future plans
 
 * #### Add documentation
 
