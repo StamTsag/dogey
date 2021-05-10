@@ -59,7 +59,7 @@ class Dogey():
 
         # Public variables
         """ The main bot class. Useful for use in on_ready where bot details are essential. """
-        self.bot: BotUser = BotUser('', '', prefix)
+        self.bot: BotUser = BotUser('', '', prefix, False, False)
 
         """ The current room of Dogey. """
         self.current_room: int = None
@@ -282,14 +282,34 @@ class Dogey():
         self.__assert_items({message: str, whisper_to: str})
         await self.__send_wss('chat:send_msg', {'id': self.current_room, 'isWhisper': True if whisper_to else False, 'whisperedTo': whisper_to if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' '))})
 
-    async def get_user_info(self, user_id: int) -> None:
+    async def get_user_info(self, user_id: str) -> None:
         """Fetches a user's info
 
         Args:
             user_id (int): The id of a user
         """
-        self.__assert_items({user_id: int})
+        self.__assert_items({user_id: str})
         await self.__send_wss('user:get_info', {'userIdOrUsername': user_id})
+
+    async def set_muted(self, state: bool) -> None:
+        """Sets the mute state of the bot
+
+        Args:
+            state (bool): The new state of the bot mute state
+        """
+        self.__assert_items({state: bool})
+        self.bot.muted = state # not returned in room:mute:reply, eh
+        await self.__send_wss('room:mute', {'muted': state})
+
+    async def set_deafened(self, state: bool) -> None:
+        """Sets the deafened state of the bot
+
+        Args:
+            state (bool): The new state of the bot deafen state
+        """
+        self.__assert_items({state: bool})
+        self.bot.deafened = state
+        await self.__send_wss('room:deafen', {'deafened': state})
 
     """ Event callers, hidden, from resfunc """
 
@@ -405,6 +425,24 @@ class Dogey():
         """
         assert isinstance(response, dict)
         self.__try_event('on_user_info_get', response['p'])
+
+    def __room_mute_reply(self, response: dict) -> None:
+        """The bot has changed its muted state
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+        self.__try_event('on_bot_mute_changed')
+
+    def __room_deafen_reply(self, response: dict) -> None:
+        """The bot has changed its muted state
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+        self.__try_event('on_bot_deafen_changed')
 
     """ Decorators """
 

@@ -17,11 +17,16 @@ class BotUser():
     """The base bot instance of dogey, may use with the new bot creation endpoint when implemented
     """
 
-    def __init__(self, name: str, id: str, prefix: str):
-        assert_items({name: str, id: str, prefix: str})
+    def __init__(self, name: str, id: str, prefix: str, muted: bool, deafened: bool):
+        assert_items({name: str, id: str, prefix: str, muted: bool, deafened: bool})
         self.name = name
         self.id = id
         self.prefix = prefix
+        self.muted = muted
+        self.deafened = deafened
+
+    def __str__(self):
+        return self.name
 
 
 class User():

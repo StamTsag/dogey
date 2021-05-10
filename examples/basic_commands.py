@@ -6,7 +6,6 @@ dogey = Dogey(token='your token',
 
 bot = dogey.bot
 
-
 @dogey.event
 async def on_ready():
     print(f'{bot.name} is up! (prefix is {bot.prefix})')
@@ -30,9 +29,24 @@ async def doiexist(ctx: Context):
     # Checks if a user exists in dogey's cache
     await dogey.send(str(ctx.author.id in dogey.room_members))
 
+@dogey.command
+async def mute(ctx: Context):
+    await dogey.set_muted(not bot.muted)
+
+@dogey.command
+async def deafen(ctx: Context):
+    await dogey.set_deafened(not bot.deafened)
 
 @dogey.event
 async def on_user_info_get(info: dict):
     print(info)
+
+@dogey.event
+async def on_mute_changed():
+    await dogey.send(f'I\'ve changed my muted state to {bot.muted}')
+
+@dogey.event
+async def on_deafen_changed():
+    await dogey.send(f'I\'ve changed my deafened state to {bot.deafened}')
 
 dogey.start()
