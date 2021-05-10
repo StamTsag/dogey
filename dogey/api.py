@@ -3,37 +3,32 @@
 import asyncio
 from asyncio.events import AbstractEventLoop
 from json import dumps, loads
-from typing import Any, Awaitable, Callable, Dict, Type
+from typing import Any, Awaitable, Dict
 from uuid import uuid4
 from inspect import getmembers, ismethod
 
 import websockets
 from websockets.client import WebSocketClientProtocol
 
-from .variables import exc_no_info as excnoinfo
 from .variables import response_events as resev
 from .variables import response_events_functions as resfunc
 from .variables import response_events_ignore as resignore
 
 from .classes import Context, Message, User, Room, BotUser, Event, Command
 
-
 class Dogey():
-    """The main Dogey client.
-    """
-
+    """The main Dogey client. """
+    
     def __init__(self, token: str, refresh_token: str, prefix: str, logging_enabled: bool = False):
         """The initializer of a Dogey client
 
         Args:
-            token (str): Your bot account's token
-            refresh_token (str): Your bot account's refresh token
-            prefix (str): The prefix of your bot's commands
+            token (str): Your bot's token
+            refresh_token (str): Your bot's refresh token
+            prefix (str): The prefix for your bot's commands
             logging_enabled (bool): Whether or not debug logs should be output
         """
-
-        self.__assert_items({token: str, refresh_token: str,
-                            prefix: str, logging_enabled: bool})
+        self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool})
 
         # Private variables
         """ Events and commands, added at runtime. """
@@ -43,8 +38,7 @@ class Dogey():
         """ Essential for logging in. """
         self.__token: str = token
         self.__refresh_token: str = refresh_token
-
-        """ Other """
+        
         """ The main loop handling tasks etc. Also useful where async context can't be maintained. """
         self.__loop: AbstractEventLoop = asyncio.get_event_loop()
 
@@ -67,7 +61,8 @@ class Dogey():
         """ Room-related variables. One holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
         self.room_members: Dict[str, User] = {}
         self.room_details: Dict[str, Room] = {}
-        # to get in room_unban_reply
+        
+        """ Needed room_get_banned_users_reply and room_unban_reply. """
         self.banned_room_members: Dict[str, User] = {}
         self.last_banned_user: str = ''
 
@@ -101,6 +96,8 @@ class Dogey():
 
             """ Recieve authentication first in order to provide the client with bot info ASAP and establish a connection. """
             await self.__send_wss('auth:request', {'accessToken': self.__token, 'refreshToken': self.__refresh_token})
+            
+            # TODO: Fetch bot info and put to self.bot, change from BotUser to User or inherit and add prefix
             auth_res = loads(await self.__wss.recv())
 
             """ Update self.bot state, crucial state to consider whether or not our auth passed. """
@@ -122,7 +119,7 @@ class Dogey():
                 self.__response_switcher(res)
 
     async def __send_wss(self, op: str, data: Dict[str, Any]) -> None:
-        """Sends a packet to the active dogehouse connection
+        """Sends a packet to the active dogehouse websocket sconnection
 
         Args:
             op (str): The name of the event, most of which can be seen on https://github.com/benawad/dogehouse/blob/staging/kousa/lib/broth/message/manifest.ex
@@ -142,12 +139,11 @@ class Dogey():
         self.__assert_items({event_name: str})
 
         try:
-            """ Dont send Context, custom args only"""
+            """ Dont send Context, custom args only. """
             self.__loop.create_task(
                 self.__events[event_name].func(*args, **kwargs))
         except:
-            self.__log(
-                f'Not firing {event_name}, event is not registered by the client.')
+            self.__log(f'Not firing {event_name}, event is not registered by the client.')
 
     def __try_command(self, ctx: Context) -> None:
         """Fires a command with Context and optional arguments
@@ -166,20 +162,19 @@ class Dogey():
             self.__log(f'Error while calling command {ctx.command_name}: {e}')
 
     def __response_switcher(self, response: str) -> None:
-        """Checks every possible event and either fires it or ignores it
+        """Checks every possible event and either calls it or ignores it
 
         Args:
             response (str): The response from __recv_loop
         """
         self.__assert_items({response: str})
 
-        """ Shorthand cuz... uh """
         r = response
 
-        """ Check this later on. """
+        """ To report unhandled events. """
         has_been_handled = False
 
-        """ Multiple ignore checks following. """
+        """ Multiple ignore checks coming up. """
 
         """ For basic text like 'ping'. """
         if r in resignore:
@@ -188,17 +183,15 @@ class Dogey():
         """ Do it now that we are assured it's a dict. """
         r = loads(r)
 
-        """ For the original event names. May want to add one because it already has a similar event before it or cuz it's of no use. """
+        """ For the original event names. Only ignore an event if it's called in a similar way else leave it to be unhandled. """
         if r['op'] in resignore:
-            self.__log(f'Ignored event: {r["op"]}')
             return
 
         """ Call the representative function of each response event. """
         for i, ev in enumerate(resev):
             if r['op'] == ev:
-                """ I know this sucks but we gotta sacrifice readability for extendability. what this does tldr; inspect the self object's functions then call a hidden event."""
-                dict(getmembers(self, ismethod))[
-                    f'_{self.__class__.__name__}__{resfunc[i]}'](r)
+                """ I know this is bad but we gotta sacrifice readability for extendability. what this does tldr; inspect the self object's functions then call a hidden event. """
+                dict(getmembers(self, ismethod))[f'_{self.__class__.__name__}__{resfunc[i]}'](r)
                 has_been_handled = True
 
         """ Known ways to reach this: 1.New events in dogehouse, not in resev. """
@@ -227,7 +220,7 @@ class Dogey():
         for item, check in checks.items():
             assert isinstance(item, check)
 
-    """ Bot methods, normal """
+    """ Bot methods """
 
     def set_logging_state(self, state: bool) -> None:
         """Sets the state of debugging, same as using the logging_enabled parameter upon client initialisation
@@ -341,12 +334,15 @@ class Dogey():
             ip_ban (bool, optional): Whether or not it should also ban his IP. Defaults to False.
         """
         self.__assert_items({user_id: str, ip_ban: bool})
+        
         user = self.room_members[user_id]
         await self.__send_wss('room:ban', {'userId': user_id, 'shouldBanIp': ip_ban})
+        
         """ No reply for room:ban, do it ourselves """
         self.last_banned_user = user.id
         self.__try_event('on_room_user_banned', user)
-        # dont make this a function, we have self.banned_room_users for this
+        
+        # dont make this a public method, we have self.banned_room_users for this
         await self.__send_wss('room:get_banned_users', {'cursor': 0, 'limit': 100})
 
     async def room_unban(self, user_id: str) -> None:
@@ -361,8 +357,6 @@ class Dogey():
     async def add_speaker(self, user_id: str) -> None:
         self.__assert_items({user_id: str})
         await self.__send_wss('add_speaker', {'userId': user_id})
-
-    """ Event callers, hidden, from resfunc """
 
     async def make_admin(self, user_id: str) -> None:
         """Makes a user the owner of a room
@@ -390,6 +384,8 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
         await self.__send_wss('room:set_auth', {'userId': user_id, 'level': 'user'})
+        
+    """ Event callers, hidden, from resfunc """
 
     def __room_create_reply(self, response: dict) -> None:
         """The requested room has been created
@@ -399,18 +395,17 @@ class Dogey():
         """
         assert isinstance(response, dict)
 
-        """ Readability > memory, like they have an impact..."""
         room = response['p']
         room_id = room['id']
 
         """ Update current room for .send and future room functions """
         self.current_room = room_id
-        """ To check room details from functions where it's not feasible like __user_left_room. """
+        
+        """ To pass a Room in functions where it's not feasible like __user_left_room. """
         self.room_details[room_id] = Room.parse(room)
 
-        """ Append by __new_user_join_room, reset by functions to come before pushing to main. Add bot to prevent self messages in on_message from causing errors. """
-        self.room_members = {self.bot.id: User(
-            self.bot.id, self.bot.name, self.bot.name, '', '', '', True, 0, 0)}
+        """ Append by __new_user_join_room, add self.bot when it's changed to User from BotUser(__recv_loop). Add bot to prevent self messages in on_message from causing errors. """
+        self.room_members = {self.bot.id: User(self.bot.id, self.bot.name, self.bot.name, '', '', '', True, 0, 0)}
 
         self.__try_event('on_room_created', self.room_details[room_id])
 
@@ -429,8 +424,7 @@ class Dogey():
 
         room_id = response['d']['roomId']
 
-        self.__try_event(
-            'on_user_join', self.room_members[user_id], self.room_details[room_id])
+        self.__try_event('on_user_join', self.room_members[user_id], self.room_details[room_id])
 
     def __user_left_room(self, response: dict) -> None:
         """A user has left the room
@@ -443,7 +437,6 @@ class Dogey():
         user_id = response['d']['userId']
         room_id = response['d']['roomId']
 
-        """ Hacky but we need to provide it before deleting. """
         member = self.room_members[user_id]
 
         del self.room_members[user_id]
@@ -473,7 +466,7 @@ class Dogey():
                 """ Not passed any, continue with none. """
                 command_name, content = msg.content.split(' ', 0), []
 
-            """ Same as str.removeprefix but uses py 3.9. """
+            """ Same as str.removeprefix but uses py 3.9 so leave it. """
             command_name = command_name[len(self.bot.prefix):]
 
             """ Get all arguments. """
@@ -487,11 +480,9 @@ class Dogey():
 
             if len(command_name) > 0:
                 if command_name in self.__commands:
-                    self.__try_command(
-                        Context(msg, self.room_members[msg.sent_from], command_name, arguments))
+                    self.__try_command(Context(msg, self.room_members[msg.sent_from], command_name, arguments))
                 else:
-                    self.__log(
-                        f'Not firing command {command_name}, not registered.')
+                    self.__log(f'Not firing command {command_name}, not registered.')
 
         self.__try_event('on_message', msg)
 
@@ -529,8 +520,7 @@ class Dogey():
             response (dict): The response from response_switcher
         """
         assert isinstance(response, dict)
-        self.__try_event('on_chat_user_banned',
-                         self.room_members[response['d']['userId']])
+        self.__try_event('on_chat_user_banned', self.room_members[response['d']['userId']])
 
     def __chat_user_unbanned(self, response: dict) -> None:
         """A user has been chat unbanned
@@ -539,8 +529,7 @@ class Dogey():
             response (dict): The response from response_switcher
         """
         assert isinstance(response, dict)
-        self.__try_event('on_chat_user_unbanned',
-                         self.room_members[response['d']['userId']])
+        self.__try_event('on_chat_user_unbanned', self.room_members[response['d']['userId']])
 
     def __room_unban_reply(self, response: dict) -> None:
         """A user has been unbanned
@@ -549,8 +538,11 @@ class Dogey():
             response (dict): The response from response_switcher
         """
         assert isinstance(response, dict)
+        
         user = self.banned_room_members[self.last_banned_user]
+        
         del self.banned_room_members[self.last_banned_user]
+        
         self.__try_event('on_room_user_unbanned', user)
 
     def __room_get_banned_users_reply(self, response: dict) -> None:
@@ -560,7 +552,9 @@ class Dogey():
             response (dict): The response from response_switcher
         """
         assert isinstance(response, dict)
+        
         banned_users = response['p']['users']
+        
         for user in banned_users:
             self.banned_room_members[user['id']] = User.parse(user)
 
@@ -571,13 +565,15 @@ class Dogey():
             response (dict): The response from response_switcher
         """
         assert isinstance(response, dict)
+        
         user_id = response['d']['userId']
+        
         self.__try_event('on_hand_raised', self.room_members[user_id])
 
     """ Decorators """
 
     def event(self, func: Awaitable, name: str = '') -> Awaitable:
-        """The basic Dogey event decorator. Allows for the use of functions when a certain action has been fired.
+        """The basic Dogey event decorator. Allows for the use of functions when a certain action has been fired
 
         Args:
             func (Awaitable): An async function to decorate
@@ -588,13 +584,15 @@ class Dogey():
         def wrapper(func: Awaitable):
             """ Register with default function otherwise use param. """
             func_name = name if name else func.__name__
+            
             self.__events[func_name] = Event(func, func_name)
-            self.__log(
-                f'Registered event: {func.__name__ if func.__name__ else name}')
+            
+            self.__log(f'Registered event: {func_name}')
+            
         return wrapper(func) if func else wrapper
 
     def command(self, func: Awaitable, name: str = '', description: str = '') -> Awaitable:
-        """A command which will be fired when someone types it into the chat with your bot's prefix.
+        """A command which will be fired when someone types it into the chat with your bot's prefix
 
         Args:
             func (Awaitable): An async function to decorate
@@ -604,49 +602,26 @@ class Dogey():
 
         def wrapper(func: Awaitable):
             func_name = name if name else func.__name__
+            
             self.__commands[func_name] = Command(func, func_name, description)
-            self.__log(
-                f'Registered command: {func.__name__ if func.__name__ else name}')
-        return wrapper(func) if func else wrapper
+            
+            self.__log(f'Registered command: {func_name}')
 
+        return wrapper(func) if func else wrapper
 
 """ Exceptions """
 
-
 class DogeyError(Exception):
-    """The base Dogey Exception class
-    """
+    """The base Dogey Exception class. """
+    
     pass
-
-
-class ConnectionFailed(DogeyError):
-    """For when a websocket connection has failed.
-    """
-    pass
-
 
 class InvalidCredentialsError(DogeyError):
-    """For when an invalid token/refresh token has been passed to the Dogey client.
-    """
+    """For when an invalid token/refresh token has been passed to the Dogey client. """
+    
     pass
 
-
-class InvalidParameter(DogeyError):
-    """For when an invalid parameter has been passed.
-    """
-
-    def __init__(self, param_name: str):
-        assert isinstance(param_name, str)
-        super(InvalidParameter, self).__init__(
-            f'An invalid parameter has been passed: {param_name}')
-
-
-class InvalidParameterValue(DogeyError):
-    def __init__(self, msg: str = excnoinfo):
-        assert isinstance(msg, str)
-        super(InvalidParameterValue, self).__init__(msg)
-
-
 class InstanceAlreadyCreated(DogeyError):
-    """For when the Dogey instance has already been created, multiple calls to start may cause this.
-    """
+    """For when the Dogey instance has already been created, multiple calls to start will cause this. """
+    
+    pass

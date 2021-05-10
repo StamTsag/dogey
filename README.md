@@ -27,13 +27,9 @@
 
 ### Guide
 
-* #### ```pip install autopep8```
-
 * #### ```cd {dogey repository}```
 
 * #### ```pip install -e .``` Optional but speeds up changes(auto installs every time it is updated)
-
-* #### And after modifying something always test your changes and ```git ls-files | grep '\.py' | xargs autopep8 --in-place```
 
 * #### Pull Request every new feature/change added, not a bunch of changes at once
 
