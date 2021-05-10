@@ -344,9 +344,10 @@ class Dogey():
         user = self.room_members[user_id]
         await self.__send_wss('room:ban', {'userId': user_id, 'shouldBanIp': ip_ban})
         """ No reply for room:ban, do it ourselves """
-        self.banned_room_members[user.id] = user
         self.last_banned_user = user.id
         self.__try_event('on_room_user_banned', user)
+        # dont make this a function, we have self.banned_room_users for this
+        await self.__send_wss('room:get_banned_users', {'cursor': 0, 'limit': 100})
 
     async def room_unban(self, user_id: str) -> None:
         """Unbans a user from the current room
@@ -511,10 +512,26 @@ class Dogey():
                          self.room_members[response['d']['userId']])
 
     def __room_unban_reply(self, response: dict) -> None:
+        """A user has been unbanned
+
+        Args:
+            response (dict): The response from response_switcher
+        """
         assert isinstance(response, dict)
         user = self.banned_room_members[self.last_banned_user]
         del self.banned_room_members[self.last_banned_user]
         self.__try_event('on_room_user_unbanned', user)
+
+    def __room_get_banned_users_reply(self, response: dict) -> None:
+        """The banned room users have been fetched
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+        banned_users = response['p']['users']
+        for user in banned_users:
+            self.banned_room_members[user['id']] = User.parse(user)
 
     """ Decorators """
 
