@@ -140,7 +140,8 @@ class Dogey():
 
         try:
             """ Dont send Context, custom args only"""
-            self.__loop.create_task(self.__events[event_name].func(*args, **kwargs))
+            self.__loop.create_task(
+                self.__events[event_name].func(*args, **kwargs))
         except:
             self.__log(
                 f'Not firing {event_name}, event is not registered by the client.')
@@ -298,7 +299,7 @@ class Dogey():
             state (bool): The new state of the bot mute state
         """
         self.__assert_items({state: bool})
-        self.bot.muted = state # not returned in room:mute:reply, eh
+        self.bot.muted = state  # not returned in room:mute:reply, eh
         await self.__send_wss('room:mute', {'muted': state})
 
     async def set_deafened(self, state: bool) -> None:

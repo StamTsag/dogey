@@ -18,7 +18,8 @@ class BotUser():
     """
 
     def __init__(self, name: str, id: str, prefix: str, muted: bool, deafened: bool):
-        assert_items({name: str, id: str, prefix: str, muted: bool, deafened: bool})
+        assert_items({name: str, id: str, prefix: str,
+                     muted: bool, deafened: bool})
         self.name = name
         self.id = id
         self.prefix = prefix
@@ -35,7 +36,8 @@ class User():
 
     def __init__(self, id: str, username: str, display_name: str, avatar_url: str, banner_url: str, description: str, online: bool, followers: int, following: int):
         """ avatar and banner may be None, skip """
-        assert_items({id: str, username: str, display_name: str, description: str, online: bool, followers: int, following: int})
+        assert_items({id: str, username: str, display_name: str,
+                     description: str, online: bool, followers: int, following: int})
         self.id = id
         self.username = username
         self.display_name = display_name
@@ -60,7 +62,8 @@ class User():
         online = user['online']
         followers = user['numFollowers']
         following = user['numFollowing']
-        assert_items({id: str, username: str, display_name: str, description: str, online: bool, followers: int, following: int})
+        assert_items({id: str, username: str, display_name: str,
+                     description: str, online: bool, followers: int, following: int})
         return User(id, username, display_name, avatar_url, banner_url, description, online, followers, following)
 
 
