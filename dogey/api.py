@@ -358,7 +358,38 @@ class Dogey():
         self.__assert_items({user_id: str})
         await self.__send_wss('room:unban', {'userId': user_id})
 
+    async def add_speaker(self, user_id: str) -> None:
+        self.__assert_items({user_id: str})
+        await self.__send_wss('add_speaker', {'userId': user_id})
+
     """ Event callers, hidden, from resfunc """
+
+    async def make_admin(self, user_id: str) -> None:
+        """Makes a user the owner of a room
+
+        Args:
+            user_id (str): The id of the user
+        """
+        self.__assert_items({user_id: str})
+        await self.__send_wss('room:set_auth', {'userId': user_id, 'level': 'owner'})
+
+    async def make_mod(self, user_id: str) -> None:
+        """Makes a user a moderator of a room
+
+        Args:
+            user_id (str): The id of the user
+        """
+        self.__assert_items({user_id: str})
+        await self.__send_wss('room:set_auth', {'userId': user_id, 'level': 'mod'})
+
+    async def make_user(self, user_id: str) -> None:
+        """If the user is a moderator he gets demoted, otherwise this is useless
+
+        Args:
+            user_id (str): The id of the user
+        """
+        self.__assert_items({user_id: str})
+        await self.__send_wss('room:set_auth', {'userId': user_id, 'level': 'user'})
 
     def __room_create_reply(self, response: dict) -> None:
         """The requested room has been created
@@ -532,6 +563,16 @@ class Dogey():
         banned_users = response['p']['users']
         for user in banned_users:
             self.banned_room_members[user['id']] = User.parse(user)
+
+    def __hand_raised(self, response: dict) -> None:
+        """A user wants to speak
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+        user_id = response['d']['userId']
+        self.__try_event('on_hand_raised', self.room_members[user_id])
 
     """ Decorators """
 

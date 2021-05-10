@@ -35,4 +35,10 @@ async def on_message(message: Message):
     author: User = dogey.room_members[message.sent_from]
     print(f'A message has been sent by {author.username}: {message.content}')
 
+
+@dogey.event
+async def on_hand_raised(user: User):
+    await dogey.add_speaker(user.id)
+    await dogey.send(f'Gave {user.username} permission to speak.')
+
 dogey.start()
