@@ -2,7 +2,7 @@ from dogey import Dogey
 from dogey.classes import Message, User, Room
 
 dogey = Dogey(token='your token',
-              refresh_token='your refresh token', prefix='d')
+              refresh_token='your refresh token', prefix='.')
 
 bot = dogey.bot
 

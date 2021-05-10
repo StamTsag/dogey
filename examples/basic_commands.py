@@ -1,5 +1,5 @@
 from dogey import Dogey
-from dogey.classes import Context
+from dogey.classes import Context, User
 
 dogey = Dogey(token='your token',
               refresh_token='your refresh token', prefix='.')
@@ -41,6 +41,11 @@ async def deafen(ctx: Context):
     await dogey.set_deafened(not bot.deafened)
 
 
+@dogey.command
+async def chatbanme(ctx: Context):
+    await dogey.chat_ban(ctx.author.id)
+
+
 @dogey.event
 async def on_user_info_get(info: dict):
     print(info)
@@ -54,5 +59,10 @@ async def on_mute_changed():
 @dogey.event
 async def on_deafen_changed():
     await dogey.send(f'I\'ve changed my deafened state to {bot.deafened}')
+
+
+@dogey.event
+async def on_chat_user_banned(user: User):
+    await dogey.send(f'{user.username} has been chat-banned.')
 
 dogey.start()

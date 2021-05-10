@@ -312,6 +312,24 @@ class Dogey():
         self.bot.deafened = state
         await self.__send_wss('room:deafen', {'deafened': state})
 
+    async def chat_ban(self, user_id: str) -> None:
+        """Ban a user from the chat
+
+        Args:
+            user_id (str): The id of the user
+        """
+        self.__assert_items({user_id: str})
+        await self.__send_wss('chat:ban', {'userId': user_id})
+
+    async def chat_unban(self, user_id: str) -> None:
+        """Unban a user from the chat
+
+        Args:
+            user_id (str): The id of the user
+        """
+        self.__assert_items({user_id: str})
+        await self.__send_wss('chat:unban', {'userId': user_id})
+
     """ Event callers, hidden, from resfunc """
 
     def __room_create_reply(self, response: dict) -> None:
@@ -444,6 +462,26 @@ class Dogey():
         """
         assert isinstance(response, dict)
         self.__try_event('on_bot_deafen_changed')
+
+    def __chat_user_banned(self, response: dict) -> None:
+        """A user has been chat banned
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+        self.__try_event('on_chat_user_banned',
+                         self.room_members[response['d']['userId']])
+
+    def __chat_user_unbanned(self, response: dict) -> None:
+        """A user has been chat unbanned
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+        self.__try_event('on_chat_user_unbanned',
+                         self.room_members[response['d']['userId']])
 
     """ Decorators """
 
