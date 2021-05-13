@@ -46,6 +46,7 @@ class User():
 
     @staticmethod
     def parse(user: dict):
+        assert isinstance(user, dict)
         id = user['id']
         username = user['username']
         display_name = user['displayName']
@@ -76,6 +77,7 @@ class Message():
 
     @staticmethod
     def parse(message: dict):
+        assert isinstance(message, dict)
         id = message['id']
         sent_from = message['from']
         sent_at = message['sentAt']
@@ -101,6 +103,7 @@ class Room:
 
     @staticmethod
     def parse(room: dict):
+        assert isinstance(room, dict)
         id = room['id']
         creator_id = room['creatorId']
         name = room['name']
@@ -108,6 +111,27 @@ class Room:
         is_private = room['isPrivate']
         assert_items({id: str, creator_id: str, name: str, description: str, is_private: bool})
         return Room(id, creator_id, name, description, is_private)
+
+class ScheduledRoom():
+    def __init__(self, id: str, name: str, scheduled_for: str, description: str):
+        assert_items({id: str, name: str, scheduled_for: str, description: str})
+        self.id = id
+        self.name = name
+        self.scheduled_for = scheduled_for
+        self.description = description
+
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def parse(scheduled_room: dict):
+        assert isinstance(scheduled_room, dict)
+        id = scheduled_room['id']
+        name = scheduled_room['name']
+        scheduled_for = scheduled_room['scheduledFor']
+        description = scheduled_room['description']
+        assert_items({id: str, name: str, scheduled_for: str, description: str})
+        return ScheduledRoom(id, name, scheduled_for, description)
 
 class Context():
     """The most used class of dogey, included in every command but not in events. """

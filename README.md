@@ -15,13 +15,13 @@
 * #### pip
 
 ### Guide
-* #### ```git clone``` this repository
+* #### ```git clone``` this repository.
 
 * #### ```cd dogey```
 
 * #### ```pip install .```
 
-* #### You can now ```import dogey``` in any of your programs
+* #### You can now ```import dogey``` in any of your programs.
 
 ## Contributing
 
@@ -29,13 +29,15 @@
 
 * #### ```cd {dogey repository}```
 
-* #### ```pip install -e .``` Optional but speeds up changes(auto installs every time it is updated)
+* #### ```pip install -e .``` Optional but speeds up changes(auto installs every time it is updated).
 
-* #### Pull Request every new feature/change added, not a bunch of changes at once
+* #### Pull Request every new feature/change added, not a bunch of changes at once.
 
-* #### If you don't feel like modifying the api but want to contribute, suggest new examples
+* #### Use of docstrings is NEEDED if you are creating new methods/anything that requires more info.
 
-* #### Suggest a feature in the Issues tab or dm in discord(Shadofer#7312)
+* #### If you don't feel like modifying the api but want to contribute, suggest new examples.
+
+* #### Suggest a feature in the Issues tab or dm in discord(Shadofer#7312).
 
 ## Future plans
 

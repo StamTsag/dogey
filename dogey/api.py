@@ -5,6 +5,7 @@ from json import dumps, loads
 from typing import Any, Awaitable, Dict
 from uuid import uuid4
 from inspect import getmembers, ismethod
+from datetime import datetime
 
 import websockets
 from websockets.client import WebSocketClientProtocol
@@ -13,7 +14,7 @@ from .variables import response_events as resev
 from .variables import response_events_functions as resfunc
 from .variables import response_events_ignore as resignore
 
-from .classes import Context, Message, User, Room, BotUser, Event, Command
+from .classes import Context, Message, User, Room, ScheduledRoom, BotUser, Event, Command
 
 class Dogey():
     """The main Dogey client. """
@@ -56,7 +57,7 @@ class Dogey():
         self.bot: BotUser = BotUser('', '', prefix, False, False)
 
         """ The current room of Dogey. """
-        self.current_room: int = None
+        self.current_room: str = ''
 
         """ Room-related variables. One holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
         self.room_members: Dict[str, User] = {}
@@ -65,6 +66,12 @@ class Dogey():
         """ Needed room_get_banned_users_reply and room_unban_reply. """
         self.banned_room_members: Dict[str, User] = {}
         self.last_banned_user: str = ''
+
+        """ Scheduled rooms, updated when scheduled room events are called. """
+        self.scheduled_rooms: Dict[str, ScheduledRoom] = {}
+
+        """ Needed for room_update_scheduled_reply. """
+        self.last_updated_scheduled_room: str = ''
 
     def start(self):
         """Starts the Dogey websocket connection
@@ -385,7 +392,61 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
         await self.__send_wss('room:set_auth', {'userId': user_id, 'level': 'user'})
-        
+
+    async def create_scheduled_room(self, name: str, scheduled_for: datetime, description: str = '') -> None:
+        """Creates a scheduled room, in order to set a target time just do this:
+        ```
+        localt = time.localtime()
+
+        timestamp = datetime.datetime(localt.tm_year, localt.tm_mon, localt.tm_mday, localt.tm_hour, localt.tm_min, localt.tm_sec).timestamp() # edit the properties as u like like localt.tm_hour + 1
+
+        target_time = datetime.datetime.utcfromtimestamp(timestamp) # pass it to create_scheduled_room
+        ```
+
+        Args:
+            name (str): The name of the room
+            scheduled_for (float): The time at which the room will start.
+            description (str, optional): The description of the room. Defaults to ''
+        """
+        self.__assert_items({name: str, scheduled_for: datetime, description: str})
+        await self.__send_wss('room:create_scheduled', {'name': name, 'scheduledFor': str(scheduled_for), 'description': description})
+
+    async def get_scheduled_rooms(self) -> None:
+        """Fetches the bot's scheduled rooms """
+        await self.__send_wss('room:get_scheduled', {'userId': self.bot.id})
+
+    async def delete_scheduled_room(self, room_id: str) -> None:
+        """Deletes a scheduled room
+
+        Args:
+            room_id (str): The scheduled room id
+        """
+        self.__assert_items({room_id: str})
+
+        del self.scheduled_rooms[room_id] # room_delete_scheduled_reply has no room_id, shame
+
+        await self.__send_wss('room:delete_scheduled', {'roomId': room_id})
+
+    async def update_scheduled_room(self, room_id: str, name: str, scheduled_for: datetime, description: str = '') -> None:
+        """Updates a scheduled room
+
+        Args:
+            room_id (str): The scheduled room id
+            name (str, optional): The new name for the scheduled room.
+            scheduled_for (datetime, optional): The new start date for the scheduled room.
+            description (str, optional): The new description for the scheduled room. Defaults to ''.
+        """
+        target_room = self.scheduled_rooms[room_id]
+
+        if not description:
+            description = target_room.description
+
+        self.__assert_items({room_id: str, name: str, scheduled_for: datetime, description: str})
+
+        self.last_updated_scheduled_room = room_id
+
+        await self.__send_wss('room:update_scheduled', {'id': room_id, 'name': name, 'scheduledFor': str(scheduled_for), 'description': description})
+
     """ Hidden event callers, from resfunc """
 
     def __room_create_reply(self, response: dict) -> None:
@@ -570,6 +631,50 @@ class Dogey():
         user_id = response['d']['userId']
         
         self.__try_event('on_hand_raised', self.room_members[user_id])
+
+    def __room_create_scheduled_reply(self, response: dict) -> None:
+        """A scheduled room has been created
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+
+        scheduled_room = response['p']
+
+        self.scheduled_rooms[scheduled_room['id']] = ScheduledRoom.parse(scheduled_room)
+
+        self.__try_event('on_scheduled_room_created', self.scheduled_rooms[scheduled_room['id']])
+
+    def __room_get_scheduled_reply(self, response: dict) -> None:
+        """The scheduled rooms have been fetched
+
+        Args:
+            response (dict): [description]
+        """
+        assert isinstance(response, dict)
+
+        scheduled_rooms = response['p']['rooms']
+
+        for room in scheduled_rooms:
+            scheduled_room = ScheduledRoom.parse(room)
+            self.scheduled_rooms[scheduled_room.id] = scheduled_room
+
+        self.__try_event('on_scheduled_rooms_got', self.scheduled_rooms)
+
+    def __room_update_scheduled_reply(self, response: dict) -> None:
+        """A schedule room has been updated
+
+        Args:
+            response (dict): The response from response_switcher
+        """
+        assert isinstance(response, dict)
+
+        scheduled_room = response['p']
+
+        self.scheduled_rooms[self.last_updated_scheduled_room] = ScheduledRoom(self.last_updated_scheduled_room, scheduled_room['name'], scheduled_room['scheduledFor'], scheduled_room['description']) # manual parse, no id returned smh
+
+        self.__try_event('on_scheduled_room_updated', self.scheduled_rooms[self.last_updated_scheduled_room])
 
     """ Decorators """
 
