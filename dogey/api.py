@@ -44,9 +44,6 @@ class Dogey():
 
         """ The main websockets object. Handles sending and recieving packets. """
         self.__wss: WebSocketClientProtocol = None
-        
-        """ The fetching websocket connection. """
-        self.__fetch_wss: WebSocketClientProtocol = self.__loop.run_until_complete(self.__establish_fetch_wss())
 
         """ Indicates if the bot has established a connection to dogehouse. """
         self.__has_started: bool = False
@@ -87,25 +84,6 @@ class Dogey():
 
     """ Hidden functions """
 
-    async def __establish_fetch_wss(self) -> WebSocketClientProtocol:
-        """Tries to authenticate the fetch websocket connection for use in fetching later on.
-
-        Returns:
-            WebSocketClientProtocol: The authenticated websocket client.
-        """
-
-        fetch_wss: WebSocketClientProtocol = await websockets.connect('wss://api.dogehouse.tv/socket')
-
-        await self.__send_wss('auth:request', {'accessToken': self.__token, 'refreshToken': self.__refresh_token}, fetch_wss)
-
-        try:
-            """ Just try to access a key that would exist if we were truly authenticated. """
-            loads(await fetch_wss.recv())['p']['id']
-            loads(await fetch_wss.recv())
-            return fetch_wss
-        except:
-            raise InvalidCredentialsError
-
     async def __recv_loop(self) -> None:
         """Starts the infinite loop of Dogey
 
@@ -139,41 +117,18 @@ class Dogey():
                 res = await self.__wss.recv()
                 self.__response_switcher(res)
 
-    async def __send_wss(self, op: str, data: Dict[str, Any], target_wss: WebSocketClientProtocol = None) -> None:
+    async def __send_wss(self, op: str, data: Dict[str, Any]) -> None:
         """Sends a packet to the active dogehouse websocket connection.
 
         Args:
             op (str): The name of the event, most of which can be seen on https://github.com/benawad/dogehouse/blob/staging/kousa/lib/broth/message/manifest.ex
             data (Dict[str, Any]): The required arguments to pass to the event, again, check the corresponding events on github
-        """
-        if not target_wss:
-            target_wss = self.__wss
-
-        self.__assert_items({op: str, target_wss: WebSocketClientProtocol})
-        assert isinstance(data, dict)
-
-        await target_wss.send(dumps({'op': op, 'd': data, 'reference': str(uuid4()), 'version': '0.2.0'}))
-
-    async def __fetch(self, op: str, data: Dict[str, Any]) -> None:
-        """Fetches a value in real time, ca be used as a one-liner removing the need for events
-
-        Args:
-            op (str): The name of the event, most of which can be seen on https://github.com/benawad/dogehouse/blob/staging/kousa/lib/broth/message/manifest.ex
-            data (dict[str, Any]): The required arguments to pass to the event, again, check the corresponding events on github
-            
-        Returns:
-            dict: The response returned from the event
+            target_wss (WebSocketClientProtocol): Leave this here until
         """
         self.__assert_items({op: str})
         assert isinstance(data, dict)
 
-        loop = asyncio.new_event_loop()
-        loop.create_task(self.__fetch_wss.send(dumps({'op': op, 'd': data, 'reference': str(uuid4()), 'version': '0.2.0'})))
-
-        """ Ah, the old days of __send_and_recv which failed tragically... """
-        res = await self.__fetch_wss.recv()
-        
-        return res
+        await self.__wss.send(dumps({'op': op, 'd': data, 'reference': str(uuid4()), 'version': '0.2.0'}))
 
     def __try_event(self, event_name: str, *args, **kwargs) -> None:
         """Fires an event, if it has been registered, with optional arguments
@@ -324,7 +279,7 @@ class Dogey():
         self.__assert_items({message: str, whisper_to: str})
         await self.__send_wss('chat:send_msg', {'id': self.current_room, 'isWhisper': True if whisper_to else False, 'whisperedTo': whisper_to if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' '))})
 
-    async def get_user_info(self, user_id: str) -> dict:
+    async def get_user_info(self, user_id: str) -> None:
         """Fetches a user's info
 
         Args:
@@ -332,7 +287,7 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
 
-        return await self.__fetch('user:get_info', {'userIdOrUsername': user_id})
+        await self.__send_wss('user:get_info', {'userIdOrUsername': user_id})
 
     async def set_muted(self, state: bool) -> None:
         """Sets the mute state of the bot
