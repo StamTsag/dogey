@@ -12,5 +12,5 @@ setup(
     packages=['dogey'],
     install_requires=['websockets'],
     long_description=long_description,
-    license='Apache'
+    license='MIT'
 )
