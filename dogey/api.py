@@ -32,7 +32,8 @@ class Dogey():
         self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool})
 
         # Private variables
-        """ Events and commands, added at runtime. """
+
+        """ Events and commands, added in the event and command decorators respectively. """
         self.__events: Dict[str, Event] = {}
         self.__commands: Dict[str, Command] = {}
 
@@ -40,37 +41,38 @@ class Dogey():
         self.__token: str = token
         self.__refresh_token: str = refresh_token
         
-        """ The main loop handling tasks etc. Also useful where async context can't be maintained. """
+        """ The main loop for handling tasks, also useful where async context can't be maintained. """
         self.__loop: AbstractEventLoop = asyncio.get_event_loop()
 
-        """ The main websockets object. Handles sending and recieving packets. """
+        """ The main websockets object, handles sending and recieving packets. """
         self.__wss: WebSocketClientProtocol = None
 
         """ Indicates if the bot has established a connection to dogehouse. """
         self.__has_started: bool = False
 
-        """ Indicates if __log will print to the console. Can be changed later on by set_debug_state. """
+        """ Indicates if __log will print to the console, can be changed later on by set_debug_state. """
         self.__logging_enabled = logging_enabled
 
         # Public variables
-        """ The main bot class, filled in _recv_loop. Useful for use in on_ready where bot details are essential. """
+
+        """ The main bot class, filled in _recv_loop, useful for use in on_ready where bot details are essential. """
         self.bot: BotUser = BotUser('', '', prefix, False, False)
 
         """ The current room of Dogey. """
         self.current_room: str = ''
 
-        """ Room-related variables. One holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
+        """ Room-related variables, one holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
         self.room_members: Dict[str, User] = {}
         self.room_details: Dict[str, Room] = {}
         
-        """ Needed room_get_banned_users_reply and room_unban_reply. """
+        """ Needed for __room_get_banned_users_reply and __room_unban_reply. """
         self.banned_room_members: Dict[str, User] = {}
         self.last_banned_user: str = ''
 
         """ Scheduled rooms, updated when scheduled room events are called. """
         self.scheduled_rooms: Dict[str, ScheduledRoom] = {}
 
-        """ Needed for room_update_scheduled_reply. """
+        """ Needed for __room_update_scheduled_reply. """
         self.last_updated_scheduled_room: str = ''
 
     def start(self):
@@ -130,7 +132,6 @@ class Dogey():
         Args:
             op (str): The name of the event, most of which can be seen on https://github.com/benawad/dogehouse/blob/staging/kousa/lib/broth/message/manifest.ex
             data (Dict[str, Any]): The required arguments to pass to the event, again, check the corresponding events on github
-            target_wss (WebSocketClientProtocol): Leave this here until
         """
         self.__assert_items({op: str})
         assert isinstance(data, dict)
@@ -146,9 +147,7 @@ class Dogey():
         self.__assert_items({event_name: str})
 
         try:
-            """ Dont send Context, custom args only. """
-            self.__loop.create_task(
-                self.__events[event_name].func(*args, **kwargs))
+            self.__loop.create_task(self.__events[event_name].func(*args, **kwargs))
         except:
             self.__log(f'Not firing {event_name}, event is not registered by the client.')
 
@@ -190,18 +189,18 @@ class Dogey():
         """ Do it now that we are assured it's a dict. """
         r = loads(r)
 
-        """ For the original event names. Only ignore an event if it's called in a similar way else leave it to be unhandled. """
+        """ For the original event names, only ignore an event if it's called in a similar way else leave it to be unhandled. """
         if r['op'] in resignore:
             return
 
         """ Call the representative function of each response event. """
         for i, ev in enumerate(resev):
             if r['op'] == ev:
-                """ I know this is bad but we gotta sacrifice readability for extendability. what this does tldr; inspect the self object's functions then call a hidden event. """
+                """ I know this is bad, but we gotta sacrifice readability for productivity. what this does tldr; inspect the self object's functions then call a hidden event. """
                 dict(getmembers(self, ismethod))[f'_{self.__class__.__name__}__{resfunc[i]}'](r)
                 has_been_handled = True
 
-        """ Known ways to reach this: 1.New events in dogehouse, not in resev. """
+        """ Known ways to reach this: 1.New events in dogehouse, which is not in resev. """
         if not has_been_handled:
             self.__log(f'Unhandled event: {r["op"]}\n{r}')
 
@@ -209,7 +208,7 @@ class Dogey():
         """Prints text to the console if logging is enabled from initialisation or with set_debug_state
 
         Args:
-            text (str): The text to debug
+            text (str): The text to print
         """
         self.__assert_items({text: str})
 
@@ -236,6 +235,7 @@ class Dogey():
             state (bool): The new debugging state
         """
         self.__assert_items({state: bool})
+
         self.__logging_enabled = state
 
     def get_events(self) -> Dict[str, Event]:
@@ -265,6 +265,7 @@ class Dogey():
             is_private (bool, optional): Whether or not it should be private. Defaults to False.
         """
         self.__assert_items({name: str, description: str, is_private: bool})
+
         await self.__send_wss('room:create', {'name': name, 'description': description, 'isPrivate': is_private})
 
     async def join_room(self, id: int) -> None:
@@ -274,6 +275,7 @@ class Dogey():
             id (int): The id of the room
         """
         self.__assert_items({id: int})
+
         await self.__send_wss('room:join', {'roomId': id})
 
     async def send(self, message: str, whisper_to: str = '') -> None:
@@ -284,7 +286,9 @@ class Dogey():
             whisper_to (str, optional): A user's id to whom to whisper the message to
         """
         self.__assert_items({message: str, whisper_to: str})
-        await self.__send_wss('chat:send_msg', {'id': self.current_room, 'isWhisper': True if whisper_to else False, 'whisperedTo': whisper_to if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' '))})
+
+        await self.__send_wss('chat:send_msg', {'id': self.current_room, 'isWhisper': True if whisper_to else False,
+                            'whisperedTo': [whisper_to] if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' ') if isinstance(word, str))})
 
     async def get_user_info(self, user_id: str) -> None:
         """Fetches a user's info
@@ -303,6 +307,7 @@ class Dogey():
             state (bool): The new state of the bot mute state
         """
         self.__assert_items({state: bool})
+
         self.bot.muted = state  # not returned in room:mute:reply, eh
         await self.__send_wss('room:mute', {'muted': state})
 
@@ -313,6 +318,7 @@ class Dogey():
             state (bool): The new state of the bot deafen state
         """
         self.__assert_items({state: bool})
+
         self.bot.deafened = state
         await self.__send_wss('room:deafen', {'deafened': state})
 
@@ -323,6 +329,7 @@ class Dogey():
             user_id (str): The id of the user
         """
         self.__assert_items({user_id: str})
+
         await self.__send_wss('chat:ban', {'userId': user_id})
 
     async def chat_unban(self, user_id: str) -> None:
@@ -332,6 +339,7 @@ class Dogey():
             user_id (str): The id of the user
         """
         self.__assert_items({user_id: str})
+        
         await self.__send_wss('chat:unban', {'userId': user_id})
 
     async def room_ban(self, user_id: str, ip_ban: bool = False) -> None:
@@ -697,12 +705,13 @@ class Dogey():
             
         return wrapper(func) if func else wrapper
 
-    def command(self, func: Awaitable, name: str = '', description: str = '') -> Awaitable:
+    def command(self, func: Awaitable = None, name: str = '', description: str = 'No description provided.') -> Awaitable:
         """A command which will be fired when someone types it into the chat with your bot's prefix
 
         Args:
             func (Awaitable): An async function to decorate
-            name (str, optional): The name of the function. Defaults to None.
+            name (str, optional): The name of the function. Defaults to function name.
+            description (str, optional): The description, kwarg. Defaults to 'No description provided.'
         """
         self.__assert_items({name: str})
 

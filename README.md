@@ -2,7 +2,7 @@
 
 ## Reasons to use Dogey
 
-* ### Similar syntax to other APIs such as <a href='https://github.com/Rapptz/discord.py'>discord.py</a>
+* ### Similar syntax to other APIs such as [discord.py](https://github.com/Rapptz/discord.py)
 
 * ### Always updated with the latest additions to dogehouse
 
@@ -10,12 +10,15 @@
 
 ### Requirements
 
+* #### Any modern OS such as Windows 10, macOS, Ubuntu(Linux is preferred when contributing)
+
 * #### python3
 
 * #### pip
 
 ### Guide
-* #### ```git clone``` this repository.
+
+* #### ```git clone https://github.com/Shadofer/dogey.git```
 
 * #### ```cd dogey```
 
@@ -23,21 +26,7 @@
 
 * #### You can now ```import dogey``` in any of your programs.
 
-## Contributing
-
-### Guide
-
-* #### ```cd {dogey repository}```
-
-* #### ```pip install -e .``` Optional but speeds up changes(auto installs every time it is updated).
-
-* #### Pull Request every new feature/change added, not a bunch of changes at once.
-
-* #### Use of docstrings is NEEDED if you are creating new methods/anything that requires more info.
-
-* #### If you don't feel like modifying the api but want to contribute, suggest new examples.
-
-* #### Suggest a feature in the Issues tab or dm in discord(Shadofer#7312).
+## [Contributing](https://github.com/Shadofer/dogey/blob/testing/CONTRIBUTING.md)
 
 ## Future plans
 
