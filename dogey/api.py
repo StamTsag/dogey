@@ -6,6 +6,7 @@ from typing import Any, Awaitable, Dict
 from uuid import uuid4
 from inspect import getmembers, ismethod
 from datetime import datetime
+from sys import exc_info
 
 import websockets
 from websockets.client import WebSocketClientProtocol
@@ -15,6 +16,8 @@ from .variables import response_events_functions as resfunc
 from .variables import response_events_ignore as resignore
 
 from .classes import Context, Message, User, Room, ScheduledRoom, BotUser, Event, Command
+
+from .exceptions import DogeyError, InvalidCredentialsError, InstanceAlreadyCreated, MissingRequiredArgument, CommandNotFound
 
 class Dogey():
     """The main Dogey client. """
@@ -155,17 +158,34 @@ class Dogey():
         """Fires a command with Context and optional arguments
 
         Args:
-            command_name (str): The command name
+            ctx (Context): The context of the command
         """
         self.__assert_items({ctx: Context})
 
-        target = self.__commands[ctx.command_name].func
+        final_error: DogeyError = None
 
         try:
             """ Context has everything we need, most importantly `arguments`. """
-            self.__loop.create_task(target(ctx))
-        except Exception as e:
-            self.__log(f'Error while calling command {ctx.command_name}: {e}')
+            target = self.__commands[ctx.command_name].func
+            self.__loop.create_task(target(ctx, *ctx.arguments))
+
+        except KeyError as e:
+            """ Command not found in self.__commands. """
+            final_error = CommandNotFound(ctx.command_name)
+
+        except TypeError as e:
+            """ Invalid arguments provided. """
+            args = str(e.args[0]).split("'", 1)
+            final_error = MissingRequiredArgument(args[1].replace("'", ""))
+
+        except Exception:
+            final_error = DogeyError(str(exc_info()))
+            self.__log(f'Error while calling command {ctx.command_name}: {exc_info()}')
+
+        finally:
+            if final_error:
+                """ on_command_error(Context, DogeyError) """
+                self.__try_event('on_command_error', ctx, final_error)
 
     def __response_switcher(self, response: str) -> None:
         """Checks every possible event and either calls it or ignores it
@@ -549,10 +569,8 @@ class Dogey():
                         arguments.append(arg)
 
             if len(command_name) > 0:
-                if command_name in self.__commands:
-                    self.__try_command(Context(msg, self.room_members[msg.sent_from], command_name, arguments))
-                else:
-                    self.__log(f'Not firing command {command_name}, not registered.')
+                # If it doesnt exist the try_command function will return CommandNotFound, better solution.
+                self.__try_command(Context(msg, self.room_members[msg.sent_from], command_name, arguments))
 
         self.__try_event('on_message', msg)
 
@@ -723,20 +741,3 @@ class Dogey():
             self.__log(f'Registered command: {func_name}')
 
         return wrapper(func) if func else wrapper
-
-""" Exceptions """
-
-class DogeyError(Exception):
-    """The base Dogey Exception class. """
-    
-    pass
-
-class InvalidCredentialsError(DogeyError):
-    """For when an invalid token/refresh token has been passed to the Dogey client. """
-    
-    pass
-
-class InstanceAlreadyCreated(DogeyError):
-    """For when the Dogey instance has already been created, multiple calls to start will cause this. """
-    
-    pass

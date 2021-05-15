@@ -1,3 +1,4 @@
+from dogey.exceptions import CommandNotFound, DogeyError
 from dogey import Dogey
 from dogey.classes import Context, User
 
@@ -11,7 +12,7 @@ async def on_ready():
     print(f'{bot.name} is up! (prefix is {bot.prefix})')
     await dogey.create_room('dogey.py', description='A simple command example bot', is_private=False)
 
-@dogey.command(description = 'The help command.')
+@dogey.command(description = 'The help command')
 async def help(ctx: Context):
     send_content = ''
 
@@ -25,7 +26,7 @@ async def help(ctx: Context):
 
     await dogey.send(send_content, ctx.author.id)
 
-@dogey.command(description = 'SHows the number of commands available')
+@dogey.command(description = 'Shows the number of commands available')
 async def command_count(ctx: Context):
     # Shows the number of bot commands
     await dogey.send(f'Available commands: {len(dogey.get_commands())}')
@@ -78,5 +79,9 @@ async def on_chat_user_banned(user: User):
 @dogey.event
 async def on_room_user_banned(user: User):
     await dogey.send(f'{user.username} has been banned.')
+
+@dogey.event
+async def on_command_error(ctx: Context, error: DogeyError):
+    await dogey.send(error.message)
 
 dogey.start()
