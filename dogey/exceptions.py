@@ -7,7 +7,6 @@ class DogeyError(Exception):
         """
         self.message = message
         super().__init__(message, *args)
-    pass
 
 class InvalidCredentialsError(DogeyError):
     """An invalid token/refresh token has been passed to the Dogey client. """
@@ -15,7 +14,7 @@ class InvalidCredentialsError(DogeyError):
     pass
 
 class InstanceAlreadyCreated(DogeyError):
-    """For when the Dogey instance has already been created, multiple calls to .start will cause this. """
+    """A Dogey instance has already been created, multiple calls to .start will cause this. """
     
     pass
 
@@ -44,3 +43,11 @@ class CommandNotFound(DogeyError):
 
         self.command_name = command_name
         super().__init__(f'The command "{command_name}" can\'t be found.')
+
+class TooManyArguments(DogeyError):
+    """Too many arguments have been passed to a command. """
+    def __init__(self, command_name: str):
+        assert isinstance(command_name, str)
+
+        self.command_name = command_name
+        super().__init__(f'Too many arguments have been passed to the command "{command_name}".')

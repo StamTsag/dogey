@@ -1,3 +1,4 @@
+from typing import List
 from dogey.exceptions import CommandNotFound, DogeyError
 from dogey import Dogey
 from dogey.classes import Context, User
@@ -25,6 +26,16 @@ async def help(ctx: Context):
             send_content += ' | '
 
     await dogey.send(send_content, ctx.author.id)
+
+@dogey.command(description = 'Echoes your message')
+async def echo(ctx: Context, *message: List[str]):
+    # Seperate the arguments first
+    send_content = ''
+
+    for word in message:
+        send_content += f'{word} ' # also leave a space for the next one
+
+    await dogey.send(send_content)
 
 @dogey.command(description = 'Shows the number of commands available')
 async def command_count(ctx: Context):

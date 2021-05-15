@@ -4,7 +4,7 @@ from asyncio.events import AbstractEventLoop
 from json import dumps, loads
 from typing import Any, Awaitable, Dict
 from uuid import uuid4
-from inspect import getmembers, ismethod
+from inspect import getmembers, ismethod, getfullargspec
 from datetime import datetime
 from sys import exc_info
 
@@ -17,7 +17,7 @@ from .variables import response_events_ignore as resignore
 
 from .classes import Context, Message, User, Room, ScheduledRoom, BotUser, Event, Command
 
-from .exceptions import DogeyError, InvalidCredentialsError, InstanceAlreadyCreated, MissingRequiredArgument, CommandNotFound
+from .exceptions import DogeyError, InvalidCredentialsError, InstanceAlreadyCreated, MissingRequiredArgument, CommandNotFound, TooManyArguments
 
 class Dogey():
     """The main Dogey client. """
@@ -162,6 +162,7 @@ class Dogey():
         """
         self.__assert_items({ctx: Context})
 
+        target: function = None
         final_error: DogeyError = None
 
         try:
@@ -174,9 +175,14 @@ class Dogey():
             final_error = CommandNotFound(ctx.command_name)
 
         except TypeError as e:
-            """ Invalid arguments provided. """
-            args = str(e.args[0]).split("'", 1)
-            final_error = MissingRequiredArgument(args[1].replace("'", ""))
+            if len(ctx.arguments) > (len(getfullargspec(target).args) - 1): # minus Context
+                """ Too many arguments have been passed. """
+                final_error = TooManyArguments(ctx.command_name)
+            
+            else:
+                """ Invalid arguments provided. """
+                args = str(e.args[0]).split("'", 1)
+                final_error = MissingRequiredArgument(args[1].replace("'", ""))
 
         except Exception:
             final_error = DogeyError(str(exc_info()))
@@ -306,6 +312,11 @@ class Dogey():
             whisper_to (str, optional): A user's id to whom to whisper the message to
         """
         self.__assert_items({message: str, whisper_to: str})
+
+        """ To prevent the 'no empty messages' token error. """
+        if len(message.strip()) == 0:
+            self.__log(f'No empty messages are allowed.')
+            return
 
         await self.__send_wss('chat:send_msg', {'id': self.current_room, 'isWhisper': True if whisper_to else False,
                             'whisperedTo': [whisper_to] if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' ') if isinstance(word, str))})
