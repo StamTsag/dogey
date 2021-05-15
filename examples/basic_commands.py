@@ -13,20 +13,6 @@ async def on_ready():
     print(f'{bot.name} is up! (prefix is {bot.prefix})')
     await dogey.create_room('dogey.py', description='A simple command example bot', is_private=False)
 
-@dogey.command(description = 'The help command')
-async def help(ctx: Context):
-    send_content = ''
-
-    cmds = dogey.get_commands()
-    cmds_len = len(cmds) - 1
-
-    for index, command in enumerate(cmds.values()):
-        send_content += f'{command.name}: {command.description}'
-        if index != cmds_len:
-            send_content += ' | '
-
-    await dogey.send(send_content, ctx.author.id)
-
 @dogey.command(description = 'Echoes your message')
 async def echo(ctx: Context, *message: List[str]):
     # Seperate the arguments first

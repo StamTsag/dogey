@@ -121,7 +121,12 @@ class Dogey():
             """ Mark as started to prevent multiple .start calls. """
             self.__has_started = True
 
-            """ Manually fire, doubt there's a need to automate this. """
+            """ Set default help command. """
+            if not 'help' in self.__commands:
+                self.__commands['help'] = Command(self.__default_help_command, 'help', 'The default help command.')
+                self.__log('Applied default help command.')
+
+            """ Don't move this. Doubt there's a need to automate this. """
             self.__try_event('on_ready')
 
             """ Loop to the moon! """
@@ -752,3 +757,18 @@ class Dogey():
             self.__log(f'Registered command: {func_name}')
 
         return wrapper(func) if func else wrapper
+
+    """ Other """
+
+    async def __default_help_command(self, ctx: Context) -> None:
+        send_content = ''
+
+        commands = self.get_commands()
+        commands_len = len(commands) - 1 # index starts at 0 so
+
+        for index, command in enumerate(commands.values()):
+            send_content += f'{command.name}: {command.description}'
+            if index != commands_len:
+                send_content += ' | '
+
+        await self.send(send_content, ctx.author.id)
