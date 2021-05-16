@@ -90,10 +90,9 @@ class Message():
 class Room:
     """ The basic Room instance. """
     
-    def __init__(self, id: str, creator_id: str, name: str, description: str, is_private: bool):
-        assert_items({id: str, creator_id: str, name: str, description: str, is_private: bool})
+    def __init__(self, id: str, name: str, description: str, is_private: bool):
+        assert_items({id: str, name: str, description: str, is_private: bool})
         self.id = id
-        self.creator_id = creator_id
         self.name = name
         self.description = description
         self.is_private = is_private
@@ -105,12 +104,11 @@ class Room:
     def parse(room: dict):
         assert isinstance(room, dict)
         id = room['id']
-        creator_id = room['creatorId']
         name = room['name']
         description = room['description']
         is_private = room['isPrivate']
-        assert_items({id: str, creator_id: str, name: str, description: str, is_private: bool})
-        return Room(id, creator_id, name, description, is_private)
+        assert_items({id: str, name: str, description: str, is_private: bool})
+        return Room(id, name, description, is_private)
 
 class ScheduledRoom():
     def __init__(self, id: str, name: str, scheduled_for: str, description: str):

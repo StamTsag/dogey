@@ -10,7 +10,7 @@
 
 ### Requirements
 
-* #### Any modern OS such as Windows 10, macOS, Ubuntu(Linux is preferred when contributing)
+* #### Any modern OS such as Windows 10, macOS, Ubuntu (Linux is preferred when contributing)
 
 * #### python3
 

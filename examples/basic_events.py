@@ -34,4 +34,8 @@ async def on_hand_raised(user: User):
     await dogey.add_speaker(user.id)
     await dogey.send(f'Gave {user.username} permission to speak.')
 
+@dogey.event
+async def on_room_leave(room: Room):
+    print(f'I\ve left: {room.name}')
+
 dogey.start()
