@@ -1,5 +1,6 @@
 from dogey import Dogey
-from dogey.classes import Message, User, Room
+from dogey.classes import Message, User, Room, Context
+from dogey.exceptions import DogeyError
 
 dogey = Dogey(token='your token', refresh_token='your refresh token', prefix='.')
 
@@ -22,7 +23,7 @@ async def on_user_join(user: User, room: Room):
 
 @dogey.event
 async def on_user_leave(user: User, room: Room):
-    print(f'User {user.username} has left {room.name}')
+    print(f'{user.username} has left {room.name}')
 
 @dogey.event
 async def on_message(message: Message):
@@ -37,5 +38,9 @@ async def on_hand_raised(user: User):
 @dogey.event
 async def on_room_leave(room: Room):
     print(f'I\ve left: {room.name}')
+
+@dogey.event
+async def on_command_error(ctx: Context, error: DogeyError):
+    await dogey.send(error.message)
 
 dogey.start()

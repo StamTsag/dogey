@@ -11,6 +11,9 @@ response_events_functions = ['room_create_reply', 'room_join_reply', 'new_user_j
 
 response_events_ignore = ['pong', 'you-joined-as-speaker', 'new-tokens', 'room-created', 'mod_changed', 'you-joined-as-peer']
 
+# TODO: Replace 'help' in api.py with this dict, when more default commands are needed.
+default_commands = ['help']
+
 """ List of events to add in the future: 
 
 deafen_changed: d{roomId, userId, value}

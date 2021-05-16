@@ -12,10 +12,11 @@ def assert_items(checks: Dict[Any, Type]):
         assert isinstance(item, check)
 
 class BotUser():
-    """The base bot instance of dogey, may use with the new bot creation endpoint when implemented. """
+    """The base bot instance of dogey, may be used with the new bot creation endpoint when implemented. """
 
     def __init__(self, name: str, id: str, prefix: str, muted: bool, deafened: bool):
         assert_items({name: str, id: str, prefix: str, muted: bool, deafened: bool})
+
         self.name = name
         self.id = id
         self.prefix = prefix
@@ -29,8 +30,9 @@ class User():
     """The basic User instance. """
 
     def __init__(self, id: str, username: str, display_name: str, avatar_url: str, banner_url: str, description: str, online: bool, followers: int, following: int):
-        """ avatar and banner may be None, skip """
+        # avatar and banner may be None, skip
         assert_items({id: str, username: str, display_name: str, description: str, online: bool, followers: int, following: int})
+
         self.id = id
         self.username = username
         self.display_name = display_name
@@ -47,6 +49,7 @@ class User():
     @staticmethod
     def parse(user: dict):
         assert isinstance(user, dict)
+
         id = user['id']
         username = user['username']
         display_name = user['displayName']
@@ -56,6 +59,7 @@ class User():
         online = user['online']
         followers = user['numFollowers']
         following = user['numFollowing']
+
         assert_items({id: str, username: str, display_name: str, description: str, online: bool, followers: int, following: int})
         return User(id, username, display_name, avatar_url, banner_url, description, online, followers, following)
 
@@ -65,6 +69,7 @@ class Message():
     def __init__(self, id: str, sent_from: str, sent_at: str, is_whisper: bool, tokens: list):
         assert_items({id: str, sent_from: str, sent_at: str, is_whisper: bool})
         assert isinstance(tokens, list)
+
         self.content = ''.join(f'{token["v"]} ' for token in tokens)
         self.id = id
         self.sent_from = sent_from
@@ -78,11 +83,13 @@ class Message():
     @staticmethod
     def parse(message: dict):
         assert isinstance(message, dict)
+
         id = message['id']
         sent_from = message['from']
         sent_at = message['sentAt']
         is_whisper = message['isWhisper']
         tokens = message['tokens']
+
         assert_items({id: str, sent_from: str, sent_at: str, is_whisper: bool})
         assert isinstance(tokens, list)
         return Message(id, sent_from, sent_at, is_whisper, tokens)
@@ -92,6 +99,7 @@ class Room:
     
     def __init__(self, id: str, name: str, description: str, is_private: bool):
         assert_items({id: str, name: str, description: str, is_private: bool})
+
         self.id = id
         self.name = name
         self.description = description
@@ -103,16 +111,19 @@ class Room:
     @staticmethod
     def parse(room: dict):
         assert isinstance(room, dict)
+
         id = room['id']
         name = room['name']
         description = room['description']
         is_private = room['isPrivate']
+
         assert_items({id: str, name: str, description: str, is_private: bool})
         return Room(id, name, description, is_private)
 
 class ScheduledRoom():
     def __init__(self, id: str, name: str, scheduled_for: str, description: str):
         assert_items({id: str, name: str, scheduled_for: str, description: str})
+
         self.id = id
         self.name = name
         self.scheduled_for = scheduled_for
@@ -124,10 +135,12 @@ class ScheduledRoom():
     @staticmethod
     def parse(scheduled_room: dict):
         assert isinstance(scheduled_room, dict)
+
         id = scheduled_room['id']
         name = scheduled_room['name']
         scheduled_for = scheduled_room['scheduledFor']
         description = scheduled_room['description']
+
         assert_items({id: str, name: str, scheduled_for: str, description: str})
         return ScheduledRoom(id, name, scheduled_for, description)
 
@@ -137,6 +150,7 @@ class Context():
     def __init__(self, message: Message, author: User, command_name: str, arguments: List[str]):
         assert_items({message: Message, author: User, command_name: str})
         assert isinstance(arguments, list)
+
         self.message = message
         self.author = author
         self.command_name: str = command_name
@@ -147,6 +161,7 @@ class Event():
     
     def __init__(self, func: Awaitable, name: str):
         assert_items({name: str})
+
         self.func = func
         self.name = name
 
@@ -158,6 +173,7 @@ class Command():
     
     def __init__(self, func: Awaitable, name: str, description: str):
         assert_items({name: str, description: str})
+        
         self.func = func
         self.name = name
         self.description = description

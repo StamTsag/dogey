@@ -6,6 +6,11 @@
 
 * ### Always updated with the latest additions to dogehouse
 
+## Screenshots
+
+* ### The default help command of the [basic commands example](https://github.com/Shadofer/dogey/blob/pre-release/examples/basic_commands.py)
+<img src="https://i.ibb.co/gVRvsQh/dogey-help-command.png" alt="dogey-help-command">
+
 ## Installation
 
 ### Requirements
