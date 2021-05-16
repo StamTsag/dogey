@@ -11,7 +11,7 @@ response_events_functions = ['room_create_reply', 'room_join_reply', 'new_user_j
                              'room_update_scheduled_reply', 'room_delete_scheduled_reply', 'room_get_info_reply', 'room_destroyed',
                              'deafen_changed', 'mute_changed', 'room_get_top_reply']
 
-response_events_ignore = ['pong', 'you-joined-as-speake', 'new-tokens', 'room-created', 'mod_changed', 'you-joined-as-peer']
+response_events_ignore = ['pong', 'you-joined-as-speaker', 'new-tokens', 'room-created', 'mod_changed', 'you-joined-as-peer']
 
 # TODO: Replace 'help' in api.py with this dict, when more default commands are needed.
 default_commands = ['help']

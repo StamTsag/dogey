@@ -112,8 +112,9 @@ class Dogey():
             """ Needed in __send_wss. """
             self.__wss = wss
 
-            """ Recieve authentication first in order to provide the client with bot info ASAP and establish a connection. """
-            await self.__send_wss('auth:request', {'accessToken': self.__token, 'refreshToken': self.__refresh_token})
+            """ Recieve authentication first in order to provide the client with bot info ASAP and establish a connection. Reconnnecting to voice is useful even if someone wont try it.
+            Use platform dogey to support me :) """
+            await self.__send_wss('auth:request', {'accessToken': self.__token, 'refreshToken': self.__refresh_token, 'platform': 'dogey', 'reconnectToVoice': True})
             
             auth_res = loads(await self.__wss.recv())
 
