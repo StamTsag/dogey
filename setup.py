@@ -10,7 +10,7 @@ setup(
     author='Shadofer',
     author_email='shadowrlrs@gmail.com',
     packages=['dogey'],
-    install_requires=['websockets'],
+    install_requires=['websockets', 'pymediasoup'],
     long_description=long_description,
     license='MIT'
 )

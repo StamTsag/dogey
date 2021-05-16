@@ -7,6 +7,7 @@ from uuid import uuid4
 from inspect import getmembers, ismethod, getfullargspec
 from datetime import datetime
 from sys import exc_info
+import pymediasoup
 
 import websockets
 from websockets.client import WebSocketClientProtocol
@@ -235,10 +236,12 @@ class Dogey():
         """ For the original event names, only ignore an event if it's called in a similar way else leave it to be unhandled. """
         if r['op'] in resignore:
             return
-        elif r['op'] not in resev and 'error' in r['op']:
-            """ This happens in VERY rare cases where the API calls an outdated/unknown event. May find more causes soon. """
-            self.__log(f'Unknown dogehouse response: {r}')
-            return
+
+        try:
+            if r['e']:
+                return
+        except:
+            pass
 
         """ Call the representative function of each response event. """
         for i, ev in enumerate(resev):
@@ -316,11 +319,11 @@ class Dogey():
 
         await self.__send_wss('room:create', {'name': name, 'description': description, 'isPrivate': is_private})
 
-    async def join_room(self, id: int) -> None:
+    async def join_room(self, id: str) -> None:
         """Joins a room by id.
 
         Args:
-            id (int): The id of the room.
+            id (str): The id of the room.
         """
         self.__assert_items({id: str})
 
@@ -345,7 +348,7 @@ class Dogey():
                             'whisperedTo': [whisper_to] if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' ') if isinstance(word, str))})
 
     async def get_user_info(self, user_id: str) -> None:
-        """Fetches a user's info.
+        """Fetches a user's info. DISABLED ITS EVENT UNTIL FETCHING IS IMPLEMENTED.
 
         Args:
             user_id (int): The id of the user.
@@ -553,6 +556,11 @@ class Dogey():
 
         await self.__send_wss('room:update_scheduled', {'id': room_id, 'name': name, 'scheduledFor': str(scheduled_for), 'description': description})
 
+    async def get_top_rooms(self) -> None:
+        """ Fetches the top rooms of dogehouse.tv. DISABLED ITS EVENT UNTIL FETCHING IS IMPLEMENTED. """
+        # TODO: Set normal ratelimits for fetching.
+        await self.__send_wss('room:get_top', {'cursor': 0, 'limit': 20})
+
     """ Hidden event callers, from resfunc """
 
     def __room_create_reply(self, response: dict) -> None:
@@ -594,6 +602,9 @@ class Dogey():
         self.room_details[room_id] = Room.parse(room_info)
 
         self.room_members = {self.bot.id: User(self.bot.id, self.bot.name, self.bot.name, '', '', '', True, 0, 0)}
+
+        """ Force room update. """
+        asyncio.ensure_future(self.get_top_rooms())
 
         # on_room_join(Room)
         self.__try_event('on_room_join', self.room_details[room_id])
@@ -647,7 +658,6 @@ class Dogey():
 
         """ Prevent non-cached users from crashing the bot, if we have joined a room rather than created one. """
         if message.sent_from not in self.room_members:
-            self.__log('Messages from people not in cache aren\'t supported, yet.\nJoining rooms usually causes this, best bet is to wait for an update.')
             return
 
         """ Uncomment if errors come up in the future, not sure if we need it. """
@@ -698,8 +708,8 @@ class Dogey():
 
         self.room_members[user_info['id']] = User.parse(user_info)
 
-        # on_user_info_get(User)
-        self.__try_event('on_user_info_get', self.room_members[user_info['id']])
+        # on_user_info_get(User), removed until fetching is implemented
+        #self.__try_event('on_user_info_get', self.room_members[user_info['id']])
 
     def __room_mute_reply(self, response: dict) -> None:
         """The bot has changed its muted state.
@@ -896,6 +906,11 @@ class Dogey():
         self.__try_event('on_room_leave', room_info_param)
 
     def __mute_changed(self, response: dict) -> None:
+        """A user's mute state has been changed.
+
+        Args:
+            response (dict): The response from response_switcher.
+        """
         assert isinstance(response, dict)
 
         user_info = self.room_members[response['d']['userId']]
@@ -905,6 +920,11 @@ class Dogey():
         self.__try_event('on_mute_changed', user_info, new_state)
 
     def __deafen_changed(self, response: dict) -> None:
+        """A user's deafened state has been changed.
+
+        Args:
+            response (dict): The response from response_switcher.
+        """
         assert isinstance(response, dict)
 
         user_info = self.room_members[response['d']['userId']]
@@ -912,6 +932,17 @@ class Dogey():
 
         # on_deafen_changed(User, state)
         self.__try_event('on_deafen_changed', user_info, new_state)
+
+    def __room_get_top_reply(self, response: dict) -> None:
+        assert isinstance(response, dict)
+
+        rooms = response['p']['rooms']
+
+        """ Update current room members, only way to do so. """
+        for room in rooms:
+            if room['id'] == self.current_room:
+                for member in room['peoplePreviewList']:
+                    asyncio.ensure_future(self.get_user_info(member['id']))
 
     """ Decorators """
 
