@@ -895,6 +895,24 @@ class Dogey():
         # on_room_leave(Room)
         self.__try_event('on_room_leave', room_info_param)
 
+    def __mute_changed(self, response: dict) -> None:
+        assert isinstance(response, dict)
+
+        user_info = self.room_members[response['d']['userId']]
+        new_state = response['d']['value']
+
+        # on_mute_changed(User, state)
+        self.__try_event('on_mute_changed', user_info, new_state)
+
+    def __deafen_changed(self, response: dict) -> None:
+        assert isinstance(response, dict)
+
+        user_info = self.room_members[response['d']['userId']]
+        new_state = response['d']['value']
+
+        # on_deafen_changed(User, state)
+        self.__try_event('on_deafen_changed', user_info, new_state)
+
     """ Decorators """
 
     def event(self, func: Awaitable = None, name: str = '') -> Awaitable:
