@@ -189,7 +189,7 @@ class Dogey():
 
         except TypeError as e:
             args_to_reduce = 2 if self.__has_default_help_command else 1
-            
+
             if len(ctx.arguments) > (len(getfullargspec(target).args) - args_to_reduce): # minus Context AND args(if its a default command)
                 """ Too many arguments have been passed. """
                 final_error = TooManyArguments(ctx.command_name)
@@ -273,17 +273,6 @@ class Dogey():
         """ Can say this is VERY efficient in terms of one-liner checks. """
         for item, check in checks.items():
             assert isinstance(item, check)
-
-    def __perform_fast_member_check(self, user_id: str) -> None:
-        """Performs a fast check of a member, checks if he is present in room_members otherwise calls to update.
-
-        Args:
-            user_id (str): The id of the user to check.
-        """
-
-        # TODO: Finish, don't time.sleep cuz it hangs, probably await(fetching needed)
-        if user_id not in self.room_members:
-            self.__loop.create_task(self.__send_wss('user:get_info', {'userIdOrUsername': user_id}))
 
     """ Bot methods """
 
@@ -597,10 +586,17 @@ class Dogey():
         """
         assert isinstance(response, dict)
 
-        # TODO: Add something to prevent chat crashes when people aren't cached when joining rooms.
         room_info = response['p']
+        room_id = room_info['id']
 
-        # TODO: Call on_room_join event
+        self.current_room = room_id
+
+        self.room_details[room_id] = Room.parse(room_info)
+
+        self.room_members = {self.bot.id: User(self.bot.id, self.bot.name, self.bot.name, '', '', '', True, 0, 0)}
+
+        # on_room_join(Room)
+        self.__try_event('on_room_join', self.room_details[room_id])
 
     def __new_user_join_room(self, response: dict) -> None:
         """A user has joined the room.
@@ -649,7 +645,10 @@ class Dogey():
 
         message = Message.parse(response['p'])
 
-        # TODO: Update members around here?
+        """ Prevent non-cached users from crashing the bot, if we have joined a room rather than created one. """
+        if message.sent_from not in self.room_members:
+            self.__log('Messages from people not in cache aren\'t supported, yet.\nJoining rooms usually causes this, best bet is to wait for an update.')
+            return
 
         """ Uncomment if errors come up in the future, not sure if we need it. """
         """if msg.sent_from == self.bot.id: # self message, to pass or not to pass
@@ -680,7 +679,6 @@ class Dogey():
 
             if len(command_name) > 0:
                 # If it doesnt exist the try_command function will return CommandNotFound, better solution.
-                # TODO: Currently, self.room_members will not cache messages from people when it has joined and not created the room. Pass their ids and later on add by get_info?
                 self.__try_command(Context(message, self.room_members[message.sent_from], command_name, arguments))
             else:
                 """ Not sure if we should hide messages which invoke commands but we'll see. """
@@ -733,10 +731,10 @@ class Dogey():
         """
         assert isinstance(response, dict)
 
-        user_info = self.room_members[response['d']]
+        user_info = self.room_members[response['d']['userId']]
 
         # on_chat_user_banned(User)
-        self.__try_event('on_chat_user_banned', user_info['userId'])
+        self.__try_event('on_chat_user_banned', user_info)
 
     def __chat_user_unbanned(self, response: dict) -> None:
         """A user has been chat unbanned.
@@ -746,10 +744,10 @@ class Dogey():
         """
         assert isinstance(response, dict)
 
-        user_info = self.room_members[response['d']]
+        user_info = self.room_members[response['d']['userId']]
 
         # on_chat_user_unbanned(User)
-        self.__try_event('on_chat_user_unbanned', user_info['userId'])
+        self.__try_event('on_chat_user_unbanned', user_info)
 
     def __room_unban_reply(self, response: dict) -> None:
         """A user has been unbanned.
