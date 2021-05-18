@@ -1,42 +1,79 @@
 """ Made by Shadofer#7312 """
+
+
+""" BUILT-IN MODULES """
+
+""" General asynchronous functionality. """
 import asyncio
 from asyncio.events import AbstractEventLoop
-from json import dumps, loads
-from typing import Any, Awaitable, Dict
-from uuid import uuid4
-from inspect import getmembers, ismethod, getfullargspec
-from datetime import datetime
-from sys import exc_info
-import pymediasoup
 
+""" Formatting/Dumping responses. """
+from json import dumps, loads
+
+""" Type-checking. """
+from typing import Any, Awaitable, Dict, List
+
+""" Random id generator. """
+from uuid import uuid4
+
+""" Function inspectors. """
+from inspect import getmembers, ismethod, getfullargspec
+
+""" Scheduled rooms time formatting. """
+from datetime import datetime
+from time import localtime
+
+""" Exception handling. """
+from sys import exc_info
+
+""" Sending/recieving packets. """
 import websockets
 from websockets.client import WebSocketClientProtocol
 
+
+""" 3RD-PARTY MODULES """
+
+""" Sound-related. """
+import pymediasoup as pyms
+from pymediasoup.device import Device, Transport
+
+from aiortc.contrib.media import MediaPlayer
+
+
+""" LOCAL MODULES """
+
+""" General variables. """
 from .variables import response_events as resev
 from .variables import response_events_functions as resfunc
 from .variables import response_events_ignore as resignore
-from .variables import default_commands as defcmds
+from .variables import max_fetch_history as maxfetchhistory
+from .variables import fetch_check_rate as fetchcheckrate
+from .variables import fetch_max_timeout as fetchmaxtimeout
 
-from .classes import Context, Message, User, Room, ScheduledRoom, BotUser, Event, Command
+""" Classes. """
+from .classes import Context, Message, User, Room, TopRoom, ScheduledRoom, BotUser, Event, Command
 
-from .exceptions import DogeyError, InvalidCredentialsError, InstanceAlreadyCreated, MissingRequiredArgument, CommandNotFound, TooManyArguments
+""" Exceptions. """
+from .exceptions import DogeyError, DogeyCommandError, InvalidCredentialsError, InstanceAlreadyCreated, MissingRequiredArgument, CommandNotFound, TooManyArguments
+
+""" ----- START OF DOGEY ----- """
 
 class Dogey():
     """The main Dogey client. """
     
     """ Main functions """
-    def __init__(self, token: str, refresh_token: str, prefix: str, logging_enabled: bool = False):
+    def __init__(self, token: str, refresh_token: str, prefix: str = '.', logging_enabled: bool = False):
         """The initializer of a Dogey client.
 
         Args:
             token (str): Your bot's token.
             refresh_token (str): Your bot's refresh token.
-            prefix (str): The prefix for your bot's commands.
+            prefix (str): The prefix for your bot's commands. Defaults to .
             logging_enabled (bool, optional): Whether or not debug logs should be output. Defaults to False.
         """
         self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool})
 
-        # Private variables
+        """ PRIVATE VARIABLES """
 
         """ Events and commands, added in the event and command decorators respectively. """
         self.__events: Dict[str, Event] = {}
@@ -58,33 +95,31 @@ class Dogey():
         """ Indicates if __log will print to the console, can be changed later on by set_debug_state. """
         self.__logging_enabled = logging_enabled
 
-        """ Hacky but needed to verify the default_help_command args. """
-        self.__has_default_help_command: bool = True
+        """ Sound-related. """
+        self.__msdevice: Device = None
+        self.__send_transport: Transport = None
+        self.__recv_transport: Transport = None
+        self.__mstracks: Dict[str, str] = {}
 
-        # Public variables
+        """ FETCHING! (about time) """
+        self.__fetch_events: Dict[str, Any] = {}
 
-        """ The main bot class, filled in _recv_loop, useful for use in on_ready where bot details are essential. """
+        """ PUBLIC VARIABLES """
+
+        """ The main bot class, filled in _recv_loop, useful in getting the prefix and the mute/deafen state of the bot. """
         self.bot: BotUser = BotUser('', '', prefix, False, False)
 
-        """ The current room of Dogey. """
+        """ The current room of the bot. """
         self.current_room: str = ''
 
         """ Room-related variables, one holds [id, User] and the other [id, Room]. Essential for some functions such as __new_user_join_room. """
         self.room_members: Dict[str, User] = {}
         self.room_details: Dict[str, Room] = {}
-        
-        """ Needed for room-banning events. """
-        self.banned_room_members: Dict[str, User] = {}
-        self.last_unbanned_user_request: str = ''
 
-        """ Scheduled rooms, updated when scheduled room events are called. The latter needed for __room_delete_scheduled_reply. """
+        """ Scheduled rooms, updated when scheduled room events are called. """
         self.scheduled_rooms: Dict[str, ScheduledRoom] = {}
 
-        """ Needed for scheduled room-related events. """
-        self.last_updated_scheduled_room_request: str = ''
-        self.last_deleted_scheduled_room_request: str = ''
-
-    def start(self):
+    def start(self) -> None:
         """Starts the Dogey websocket connection.
 
         Raises:
@@ -112,7 +147,7 @@ class Dogey():
             """ Needed in __send_wss. """
             self.__wss = wss
 
-            """ Recieve authentication first in order to provide the client with bot info ASAP and establish a connection. Reconnnecting to voice is useful even if someone wont try it.
+            """ Recieve authentication first in order to provide the client with bot info ASAP and establish a connection. Reconnnecting to voice is useful even if someone wont use music related commands.
             Use platform dogey to support me :) """
             await self.__send_wss('auth:request', {'accessToken': self.__token, 'refreshToken': self.__refresh_token, 'platform': 'dogey', 'reconnectToVoice': True})
             
@@ -142,7 +177,7 @@ class Dogey():
                 self.__response_switcher(res)
 
     async def __send_wss(self, op: str, data: Dict[str, Any]) -> None:
-        """Sends a packet to the active dogehouse websocket connection.
+        """Sends a packet to the active dogehouse websocket connection. Use with __fetch for maximum efficiency.
 
         Args:
             op (str): The name of the event, most of which can be seen on https://github.com/benawad/dogehouse/blob/staging/kousa/lib/broth/message/manifest.ex
@@ -178,37 +213,35 @@ class Dogey():
 
         """ The target function, its max arguments and the final error, if any, to output. """
         target: function = None
-        final_error: DogeyError = None
+        final_error: DogeyCommandError = None
 
         try:
             """ Context has everything we need, most importantly `arguments`. """
             target = self.__commands[ctx.command_name].func
             self.__loop.create_task(target(ctx, *ctx.arguments))
 
-        except KeyError as e:
+        except KeyError:
             """ Command not found in self.__commands. """
             final_error = CommandNotFound(ctx.command_name)
 
         except TypeError as e:
-            args_to_reduce = 2 if self.__has_default_help_command else 1
-
-            if len(ctx.arguments) > (len(getfullargspec(target).args) - args_to_reduce): # minus Context AND args(if its a default command)
+            if len(ctx.arguments) > (len(getfullargspec(target).args) - 1): # minus Context AND args(if its a default command)
                 """ Too many arguments have been passed. """
                 final_error = TooManyArguments(ctx.command_name)
             
             else:
                 """ Missing required argument(s) provided, we throw the first one only though. """
                 args = str(e.args[0]).split("'", 1)
-                final_error = MissingRequiredArgument(args[1].replace("'", ""))
+                final_error = MissingRequiredArgument(ctx.command_name, args[1].replace("'", ""))
 
         except Exception:
-            final_error = DogeyError(str(exc_info()))
+            final_error = DogeyCommandError(ctx.command_name, str(exc_info()))
             self.__log(f'Error while calling command {ctx.command_name}: {exc_info()}')
 
         finally:
             """ Call if theres any exception raised. """
             if final_error:
-                """ on_command_error(Context, DogeyError) """
+                # on_command_error(Context, DogeyCommandError)
                 self.__try_event('on_command_error', ctx, final_error)
 
     def __response_switcher(self, response: str) -> None:
@@ -219,11 +252,7 @@ class Dogey():
         """
         self.__assert_items({response: str})
 
-        """ Shorthand, no significant reason. """
         r = response
-
-        """ To report unhandled events at the end. """
-        has_been_handled = False
 
         """ Multiple ignore checks coming up. """
 
@@ -239,21 +268,25 @@ class Dogey():
             return
 
         try:
+            """ RARELY, the API may call a non-existent/invalid event so an error will be returned by dogehouse(only on dogehouse updates). """
             if r['e']:
                 return
         except:
             pass
+
+        """ Clean-up fetch history, technically 2 ops can't be here at the same time. """
+        if r['op'] not in self.__fetch_events and len(self.__fetch_events) == maxfetchhistory:
+            """ Delete the oldest one to preserve space. """
+            del self.__fetch_events[self.__fetch_events.items()[0]]
+
+        """ For fetching, replaces latest same event. """
+        self.__fetch_events[r['op']] = r
 
         """ Call the representative function of each response event. """
         for i, ev in enumerate(resev):
             if r['op'] == ev:
                 """ I know this is bad, but we gotta sacrifice readability for productivity. what this does tldr; inspect the self object's functions then call a hidden event. """
                 dict(getmembers(self, ismethod))[f'_{self.__class__.__name__}__{resfunc[i]}'](r)
-                has_been_handled = True
-
-        """ Known ways to reach this. Happens when new events are present in dogehouse, which are not in resev. Remember to always add useless events to resignore, dont count on this. """
-        if not has_been_handled:
-            self.__log(f'Unhandled event: {r["op"]}\n{r}')
 
     def __log(self, text: str) -> None:
         """Prints text to the console if logging is enabled from initialisation or with set_debug_state.
@@ -264,7 +297,7 @@ class Dogey():
         self.__assert_items({text: str})
 
         if self.__logging_enabled:
-            print(text)
+            print(f'[DOGEY] {text}')
 
     def __assert_items(self, checks: dict) -> None:
         """Asserts that a number of arguments are of the specified type, NOT DICTS/LISTS OR ANY SUBSCRIPTED GENERICS such as Dict[str, Any].
@@ -277,6 +310,36 @@ class Dogey():
         """ Can say this is VERY efficient in terms of one-liner checks. """
         for item, check in checks.items():
             assert isinstance(item, check)
+
+    async def __fetch(self, op: str, data: Dict[str, Any], target_op: str, timeout: int = fetchmaxtimeout) -> dict:
+        """This is the EXACT same as __send_wss but it also expects a target_op which is the reply for the original op.
+
+        Args:
+            op (str): The name of the event.
+            data (Dict[str, Any]): The required arguments to pass to the event.
+            target_op (str): The reply of the event. This returns the actual response so be sure about it or else the program may hang up if the timeout is higher than default.
+            timeout (int, optional): The maximum time to wait for a fetch to be retrieved. HIGH AMOUNTS HANG. Defaults to 5.
+
+        Returns:
+            dict: The response of the target_op.
+        """
+        self.__assert_items({op: str, target_op: str, timeout: int})
+        assert isinstance(data, dict)
+
+        await self.__send_wss(op, data)
+
+        async def check():
+            while target_op not in self.__fetch_events:
+                await asyncio.sleep(fetchcheckrate)
+            else:
+                return self.__fetch_events[target_op]
+
+        response = await asyncio.wait_for(check(), timeout)
+
+        """ Clean it up. """
+        del self.__fetch_events[response['op']]
+
+        return response
 
     """ Bot methods """
 
@@ -308,27 +371,71 @@ class Dogey():
 
     """ Bot methods, dogehouse-related """
 
-    async def create_room(self, name: str, description: str = '', is_private: bool = False) -> None:
+    async def create_room(self, name: str, description: str = '', is_private: bool = False) -> Room:
         """Creates a new room.
 
         Args:
             name (str): The name of the room.
             description (str, optional): The description of the room. Defaults to no description.
             is_private (bool, optional): Whether or not it should be private. Defaults to False.
+
+        Returns:
+            Room: The created room.
         """
         self.__assert_items({name: str, description: str, is_private: bool})
 
-        await self.__send_wss('room:create', {'name': name, 'description': description, 'isPrivate': is_private})
+        response = await self.__fetch('room:create', {'name': name, 'description': description, 'isPrivate': is_private}, 'room:create:reply')
 
-    async def join_room(self, id: str) -> None:
+        room_info = response['p']
+        room_id = room_info['id']
+
+        """ Update current room for .send and future room functions. """
+        self.current_room = room_id
+        
+        """ To pass a Room in functions where it's not feasible like __user_left_room. """
+        self.room_details[room_id] = Room.parse(room_info)
+
+        self.room_members = {}
+
+        # on_room_created(Room)
+        self.__try_event('on_room_created', self.room_details[room_id])
+
+        return self.room_details[room_id]
+
+    async def join_room(self, id: str) -> Room:
         """Joins a room by id.
 
         Args:
             id (str): The id of the room.
+
+        Returns:
+            Room: The joined room.
         """
         self.__assert_items({id: str})
 
-        await self.__send_wss('room:join', {'roomId': id})
+        response = await self.__fetch('room:join', {'roomId': id}, 'room:join:reply')
+
+        room_info = response['p']
+        room_id = room_info['id']
+
+        self.current_room = room_id
+
+        self.room_details[room_id] = Room.parse(room_info)
+
+        self.room_members = {}
+
+        """ Force room update. """
+        top_rooms = await self.get_top_rooms()
+
+        for room in top_rooms:
+            if room.room.id == self.current_room:
+                for user_id in room.user_ids:
+                    self.room_members[user_id] = await self.get_user_info(user_id)
+
+        # on_room_joined(Room)
+        self.__try_event('on_room_joined', self.room_details[room_id])
+
+        return self.room_details[room_id]
 
     async def send(self, message: str, whisper_to: str = '') -> None:
         """Sends a message to the bot's current room.
@@ -348,42 +455,53 @@ class Dogey():
         await self.__send_wss('chat:send_msg', {'id': self.current_room, 'isWhisper': True if whisper_to else False,
                             'whisperedTo': [whisper_to] if whisper_to else None, 'tokens': list(dict(t='text', v=word) for word in message.split(' ') if isinstance(word, str))})
 
-    async def get_user_info(self, user_id: str) -> None:
-        """Fetches a user's info. DISABLED ITS EVENT UNTIL FETCHING IS IMPLEMENTED.
+    async def get_user_info(self, user_id: str) -> User:
+        """Fetches a user's info.
 
         Args:
             user_id (int): The id of the user.
         """
         self.__assert_items({user_id: str})
 
-        await self.__send_wss('user:get_info', {'userIdOrUsername': user_id})
+        response = await self.__fetch('user:get_info', {'userIdOrUsername': user_id}, 'user:get_info:reply')
 
-    async def set_muted(self, state: bool) -> None:
+        return User.parse(response['p'])
+
+    async def set_muted(self, state: bool) -> bool:
         """Sets the mute state of the bot.
 
         Args:
-            state (bool): The new state of the bot mute state.
+            state (bool): The new bot mute state.
+
+        Returns:
+            bool: The new bot mute state.
         """
         self.__assert_items({state: bool})
 
-        """ Not returned in room:mute:reply, not sure if creating temp vars for everything is suitable and this is most likely unnecessary for mute. """
+        response = await self.__fetch('room:mute', {'muted': state}, 'room:mute:reply')
+
         self.bot.muted = state
 
-        await self.__send_wss('room:mute', {'muted': state})
+        return self.bot.muted
 
-    async def set_deafened(self, state: bool) -> None:
+    async def set_deafened(self, state: bool) -> bool:
         """Sets the deafened state of the bot.
 
         Args:
-            state (bool): The new state of the bot deafen state.
+            state (bool): The new bot deafen state.
+
+        Returns:
+            bool: The new bot deafen state.
         """
         self.__assert_items({state: bool})
 
+        response = await self.__fetch('room:deafen', {'deafened': state}, 'room:deafen:reply')
+
         self.bot.deafened = state
 
-        await self.__send_wss('room:deafen', {'deafened': state})
+        return self.bot.deafened
 
-    async def chat_ban(self, user_id: str) -> None:
+    async def chat_ban(self, user_id: str) -> User:
         """Ban a user from the chat.
 
         Args:
@@ -391,9 +509,16 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
 
-        await self.__send_wss('chat:ban', {'userId': user_id})
+        response = await self.__fetch('chat:ban', {'userId': user_id}, 'chat_user_banned')
 
-    async def chat_unban(self, user_id: str) -> None:
+        user_info = self.room_members[response['d']['userId']]
+
+        # on_chat_user_banned(User)
+        self.__try_event('on_user_chat_banned', user_info)
+
+        return user_info
+
+    async def chat_unban(self, user_id: str) -> User:
         """Unban a user from the chat.
 
         Args:
@@ -401,32 +526,54 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
         
-        await self.__send_wss('chat:unban', {'userId': user_id})
+        response = await self.__fetch('chat:unban', {'userId': user_id}, 'chat_user_unbanned')
 
-    async def room_update(self, name: str = '', description: str = '', is_private: bool = None, chat_spam_delay: int = None) -> None:
-        """Updates the current room. Chat spam delay is the delay between sending messages, which may cut down on spam.
+        user_info = self.room_members[response['d']['userId']]
+
+        # on_chat_user_unbanned(User)
+        self.__try_event('on_user_chat_unbanned', user_info)
+
+        return user_info
+
+    async def room_update(self, name: str = '', description: str = '', is_private: bool = None, auto_speaker: bool = False, chat_mode: int = 0, chat_delay: int = None) -> Room:
+        """Updates the current room.
 
         Args:
             name (str, optional): The new name of the room. Defaults to current name.
             description (str, optional): The new description of the room. Defaults to current description.
             is_private (bool, optional): The new visibility of the room. Defaults to current visibility.
-            chat_spam_delay (int, optional): The delay between sending new messages(in milliseconds). Defaults to 1000.
+            auto_speaker (bool, optional): Whether room members are able to speak when they click on the request to speak button. Defaults to False.
+            chat_mode (int, optional): The room chat mode. 0: anyone can chat. 1: followers only. 2: disabled. Defaults to 0.
+            chat_delay (int, optional): The delay between sending chat messages, in milliseconds. Defaults to 1000.
         """
 
-        """ Fill every empty argument since the user can update whatever he wants. We use `is not None` because `if arg` alone works for booleans aswell. """
+        """ Fill every empty argument since the user can update whatever he wants. """
         room_info = self.room_details[self.current_room]
 
-        name = name if name is not None else room_info.name
-        description = description if description is not None else room_info.description
+        name = name if len(name) > 0 else room_info.name
+        description = description if len(description) > 0 else room_info.description
         is_private = is_private if is_private is not None else room_info.is_private
+        auto_speaker = auto_speaker if auto_speaker is not None else False
+        chat_mode = chat_mode if chat_mode > 0 and chat_mode <= 3 else 0
+        chat_delay = chat_delay if chat_delay else 1000
 
-        # TODO: Add and fetch the rest in Room
-        chat_spam_delay = chat_spam_delay if chat_spam_delay else 1000
+        self.__assert_items({name: str, description: str, is_private: bool, auto_speaker:bool, chat_mode: int, chat_delay: int})
 
-        self.__assert_items({name: str, description: str, is_private: bool, chat_spam_delay: int})
+        """ Convert the chat_mode first. """
+        if chat_mode == 1:
+            chat_mode = 'disabled'
+        elif chat_mode == 2:
+            chat_mode = 'follower_only'
+        else:
+            chat_mode = 'default'
 
-        # TODO: Find what the rest arguments do like chatMode. Follower only?
-        await self.__send_wss('room:update', {'name': name, 'description': description, 'isPrivate': is_private, 'chatThrottle': chat_spam_delay})
+        response = await self.__fetch('room:update', {'name': name, 'description': description, 'isPrivate': is_private, 'autoSpeaker': auto_speaker, 'chatMode': chat_mode}, 'room:update')
+
+        room_info = response['p']
+
+        self.room_details[room_info['id']] = Room.parse(room_info)
+
+        return self.room_details[room_info['id']]
 
     async def room_ban(self, user_id: str, ip_ban: bool = False) -> None:
         """Ban a user from the current room.
@@ -437,15 +584,15 @@ class Dogey():
         """
         self.__assert_items({user_id: str, ip_ban: bool})
         
+        """ No reply. """
         await self.__send_wss('room:ban', {'userId': user_id, 'shouldBanIp': ip_ban})
         
-        """ No reply for room:ban, do it ourselves. """
-        user_info = self.room_members[user_id]
+        response = await self.__fetch('room:get_banned_users', {'cursor': 0, 'limit': 100}, 'room:get_banned_users:reply')
 
-        self.__try_event('on_room_user_banned', user_info)
-        
-        """ No need to be a public method, self.banned_room_users is there for this. """
-        await self.__send_wss('room:get_banned_users', {'cursor': 0, 'limit': 100})
+        for user in response['p']['users']:
+            if user['id'] == user_id:
+                # on_user_banned(User)
+                self.__try_event('on_user_banned', User.parse(user))
 
     async def room_unban(self, user_id: str) -> None:
         """Unbans a user from the current room.
@@ -455,10 +602,10 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
 
-        self.last_unbanned_user_request = user_id
+        response = await self.__fetch('room:unban', {'userId': user_id}, 'room:unban:reply')
 
-        """ Since this has a reply, put the banned user deletion there. May have some bugs, cuz it waits for a new event, when unbanning and banning but doubt someone can join that fast. """
-        await self.__send_wss('room:unban', {'userId': user_id})
+        # on_user_unbanned(User)
+        self.__try_event('on_user_unbanned', await self.get_user_info(user_id))
 
     async def add_speaker(self, user_id: str) -> None:
         """Gives speaker permissions to a user.
@@ -500,7 +647,7 @@ class Dogey():
 
         await self.__send_wss('room:set_auth', {'userId': user_id, 'level': 'user'})
 
-    async def create_scheduled_room(self, name: str, scheduled_for: datetime, description: str = '') -> None:
+    async def create_scheduled_room(self, name: str, scheduled_for: datetime = None, description: str = '') -> ScheduledRoom:
         """Creates a scheduled room, in order to set a target time just do this:
         ```
         localt = time.localtime()
@@ -512,18 +659,53 @@ class Dogey():
 
         Args:
             name (str): The name of the room.
-            scheduled_for (float): The time at which the room will start.
+            scheduled_for (float): The time at which the room will start. Defaults to 30 mins from now.
             description (str, optional): The description of the room. Defaults to no description.
         """
+        if not scheduled_for:
+            localt = localtime()
+
+            timestamp = datetime(localt.tm_year, localt.tm_mon, localt.tm_mday, localt.tm_hour, localt.tm_min + 30, localt.tm_sec).timestamp()
+
+            target_time = datetime.utcfromtimestamp(timestamp)
+
+            scheduled_for = target_time
+
         self.__assert_items({name: str, scheduled_for: datetime, description: str})
 
-        await self.__send_wss('room:create_scheduled', {'name': name, 'scheduledFor': str(scheduled_for), 'description': description})
+        response = await self.__fetch('room:create_scheduled', {'name': name, 'scheduledFor': str(scheduled_for), 'description': description}, 'room:create_scheduled:reply')
 
-    async def get_scheduled_rooms(self) -> None:
+        scheduled_room_info = response['p']
+
+        """ Hacky way to get the correct timestamp format from the response. """
+        scheduled_room_info['scheduledFor'] = scheduled_room_info['scheduledFor'].replace('T', ' ').replace('.', '').replace('Z', '').rstrip('0')
+
+        self.scheduled_rooms[scheduled_room_info['id']] = ScheduledRoom.parse(scheduled_room_info)
+
+        scheduled_room_param = self.scheduled_rooms[scheduled_room_info['id']]
+
+        # on_scheduled_room_created(ScheduledRoom)
+        self.__try_event('on_scheduled_room_created', scheduled_room_param)
+
+        return scheduled_room_param
+
+    async def get_scheduled_rooms(self) -> List[ScheduledRoom]:
         """Fetches the bot's scheduled rooms. """
-        await self.__send_wss('room:get_scheduled', {'userId': self.bot.id})
+        response = await self.__fetch('room:get_scheduled', {'userId': self.bot.id}, 'room:get_scheduled:reply')
 
-    async def delete_scheduled_room(self, room_id: str) -> None:
+        scheduled_rooms_info = response['p']['rooms']
+
+        for room in scheduled_rooms_info:
+            scheduled_room = ScheduledRoom.parse(room)
+            self.scheduled_rooms[scheduled_room.id] = scheduled_room
+
+
+        # on_scheduled_rooms_got(List[ScheduledRooms])
+        self.__try_event('on_scheduled_rooms_got', self.scheduled_rooms.values())
+
+        return self.scheduled_rooms.values()
+
+    async def delete_scheduled_room(self, room_id: str) -> ScheduledRoom:
         """Deletes a scheduled room.
 
         Args:
@@ -531,12 +713,18 @@ class Dogey():
         """
         self.__assert_items({room_id: str})
 
-        """ Used to determine the room id with which to pass the room instance as an argument to on_scheduled_room_deleted. """
-        self.last_deleted_scheduled_room_request = room_id
+        response = await self.__fetch('room:delete_scheduled', {'roomId': room_id}, 'room:delete_scheduled:reply')
 
-        await self.__send_wss('room:delete_scheduled', {'roomId': room_id})
+        scheduled_room_param = self.scheduled_rooms[room_id]
 
-    async def update_scheduled_room(self, room_id: str, name: str = None, scheduled_for: datetime = None, description: str = '') -> None:
+        del self.scheduled_rooms[room_id]
+
+        # on_scheduled_room_deleted(ScheduledRoom)
+        self.__try_event('on_scheduled_room_deleted', scheduled_room_param)
+
+        return scheduled_room_param
+
+    async def update_scheduled_room(self, room_id: str, name: str = None, scheduled_for: datetime = None, description: str = '') -> ScheduledRoom:
         """Updates a scheduled room.
 
         Args:
@@ -553,68 +741,39 @@ class Dogey():
 
         self.__assert_items({room_id: str, name: str, scheduled_for: datetime, description: str})
 
-        self.last_updated_scheduled_room_request = room_id
+        response = await self.__fetch('room:update_scheduled', {'id': room_id, 'name': name, 'scheduledFor': str(scheduled_for), 'description': description}, 'room:update_scheduled:reply')
 
-        await self.__send_wss('room:update_scheduled', {'id': room_id, 'name': name, 'scheduledFor': str(scheduled_for), 'description': description})
+        scheduled_room_info = response['p']
 
-    async def get_top_rooms(self) -> None:
-        """ Fetches the top rooms of dogehouse.tv. DISABLED ITS EVENT UNTIL FETCHING IS IMPLEMENTED. """
+        self.scheduled_rooms[room_id] = ScheduledRoom(room_id, scheduled_room_info['name'], scheduled_room_info['scheduledFor'], scheduled_room_info['description'])
+
+        # on_scheduled_room_updated(ScheduledRoom)
+        self.__try_event('on_scheduled_room_updated', self.scheduled_rooms[room_id])
+
+        return self.scheduled_rooms[room_id]
+
+    async def get_top_rooms(self) -> List[TopRoom]:
+        """ Fetches the top rooms of dogehouse.tv. """
         # TODO: Set normal ratelimits for fetching.
-        await self.__send_wss('room:get_top', {'cursor': 0, 'limit': 20})
+        response = await self.__fetch('room:get_top', {'cursor': 0, 'limit': 20}, 'room:get_top:reply')
+
+        top_rooms = []
+
+        for room in response['p']['rooms']:
+            user_ids = []
+            for user in room['peoplePreviewList']:
+                user_ids.append(user['id'])
+            top_rooms.append(TopRoom(Room.parse(room), user_ids))
+
+        return top_rooms
 
     """ Hidden event callers, from resfunc """
-
-    def __room_create_reply(self, response: dict) -> None:
-        """The requested room has been created.
-
-        Args:
-            response (dict): The response provided by response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        room_info = response['p']
-        room_id = room_info['id']
-
-        """ Update current room for .send and future room functions. """
-        self.current_room = room_id
-        
-        """ To pass a Room in functions where it's not feasible like __user_left_room. """
-        self.room_details[room_id] = Room.parse(room_info)
-
-        """ Not sure if we should fetch bot info and then pass it here or leave as is. Doubt someone would check his bot's info but its feasible. """
-        self.room_members = {self.bot.id: User(self.bot.id, self.bot.name, self.bot.name, '', '', '', True, 0, 0)}
-
-        # on_room_created(Room)
-        self.__try_event('on_room_created', self.room_details[room_id])
-
-    def __room_join_reply(self, response: dict) -> None:
-        """A room has been joined.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        room_info = response['p']
-        room_id = room_info['id']
-
-        self.current_room = room_id
-
-        self.room_details[room_id] = Room.parse(room_info)
-
-        self.room_members = {self.bot.id: User(self.bot.id, self.bot.name, self.bot.name, '', '', '', True, 0, 0)}
-
-        """ Force room update. """
-        asyncio.ensure_future(self.get_top_rooms())
-
-        # on_room_join(Room)
-        self.__try_event('on_room_join', self.room_details[room_id])
 
     def __new_user_join_room(self, response: dict) -> None:
         """A user has joined the room.
 
         Args:
-            response (dict): The response provided by response_switcher.
+            response (dict): The response from response_switcher.
         """
         assert isinstance(response, dict)
 
@@ -632,7 +791,7 @@ class Dogey():
         """A user has left the room.
 
         Args:
-            response (dict): The response provided by response_switcher.
+            response (dict): The response from response_switcher.
         """
         assert isinstance(response, dict)
 
@@ -651,7 +810,7 @@ class Dogey():
         """A message has been recieved, let self messages be handled by the end user.
 
         Args:
-            response (dict): The response provided by response_switcher.
+            response (dict): The response from response_switcher.
         """
         assert isinstance(response, dict)
 
@@ -664,6 +823,9 @@ class Dogey():
         """ Uncomment if errors come up in the future, not sure if we need it. """
         """if msg.sent_from == self.bot.id: # self message, to pass or not to pass
             return"""
+
+        """ Prevent firing on_message, not sure if it's a good idea. """
+        was_command_invoked = False
 
         """ Indicates a command, or just some sentence starter... """
         if message.content.startswith(self.bot.prefix):
@@ -691,108 +853,11 @@ class Dogey():
             if len(command_name) > 0:
                 # If it doesnt exist the try_command function will return CommandNotFound, better solution.
                 self.__try_command(Context(message, self.room_members[message.sent_from], command_name, arguments))
-            else:
-                """ Not sure if we should hide messages which invoke commands but we'll see. """
-                # on_message(Message)
-                self.__try_event('on_message', message)
+                was_command_invoked = True
 
-    def __user_get_info_reply(self, response: dict) -> None:
-        """The info of a user from get_user_info.
-
-        Args:
-            response (str): The response provided by response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        """ Update users, also called by __perform_fast_member_check. """
-        user_info = response['p']
-
-        self.room_members[user_info['id']] = User.parse(user_info)
-
-        # on_user_info_get(User), removed until fetching is implemented
-        #self.__try_event('on_user_info_get', self.room_members[user_info['id']])
-
-    def __room_mute_reply(self, response: dict) -> None:
-        """The bot has changed its muted state.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        # on_bot_mute_changed()
-        self.__try_event('on_bot_mute_changed')
-
-    def __room_deafen_reply(self, response: dict) -> None:
-        """The bot has changed its deafened state.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        # on_bot_deafened_changed()
-        self.__try_event('on_bot_deafen_changed')
-
-    def __chat_user_banned(self, response: dict) -> None:
-        """A user has been chat-banned.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        user_info = self.room_members[response['d']['userId']]
-
-        # on_chat_user_banned(User)
-        self.__try_event('on_chat_user_banned', user_info)
-
-    def __chat_user_unbanned(self, response: dict) -> None:
-        """A user has been chat unbanned.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        user_info = self.room_members[response['d']['userId']]
-
-        # on_chat_user_unbanned(User)
-        self.__try_event('on_chat_user_unbanned', user_info)
-
-    def __room_unban_reply(self, response: dict) -> None:
-        """A user has been unbanned.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-        
-        """ Keep for param. """
-        user_info_param = self.banned_room_members[self.last_unbanned_user_request]
-        
-        del self.banned_room_members[self.last_unbanned_user_request]
-        
-        # on_room_user_unbanned(User)
-        self.__try_event('on_room_user_unbanned', user_info_param)
-
-    def __room_get_banned_users_reply(self, response: dict) -> None:
-        """The banned room users have been fetched.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-        
-        banned_users_info = response['p']['users']
-        
-        """ Update banned users. """
-        for user in banned_users_info:
-            banned_user = User.parse(user)
-            self.banned_room_members[banned_user.id] = banned_user
-
-        # on_banned_users_got(List[User])
-        self.__try_event('on_banned_users_got', self.banned_room_members)
+        if not was_command_invoked:
+            # on_message(Message)
+            self.__try_event('on_message', message)
 
     def __hand_raised(self, response: dict) -> None:
         """A user wants to speak.
@@ -807,86 +872,6 @@ class Dogey():
         # on_hand_raised(User)
         self.__try_event('on_hand_raised', self.room_members[user_id])
 
-    def __room_create_scheduled_reply(self, response: dict) -> None:
-        """A scheduled room has been created.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        scheduled_room_info = response['p']
-
-        """ Hacky way to get the correct timestamp format from the response. """
-        scheduled_room_info['scheduledFor'] = scheduled_room_info['scheduledFor'].replace('T', ' ').replace('.', '').replace('Z', '').rstrip('0')
-
-        self.scheduled_rooms[scheduled_room_info['id']] = ScheduledRoom.parse(scheduled_room_info)
-
-        # on_scheduled_room_created(ScheduledRoom)
-        self.__try_event('on_scheduled_room_created', self.scheduled_rooms[scheduled_room_info['id']])
-
-    def __room_get_scheduled_reply(self, response: dict) -> None:
-        """The scheduled rooms have been fetched.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        scheduled_rooms_info = response['p']['rooms']
-
-        for room in scheduled_rooms_info:
-            scheduled_room = ScheduledRoom.parse(room)
-            self.scheduled_rooms[scheduled_room.id] = scheduled_room
-
-        # on_scheduled_rooms_got(List[ScheduledRooms])
-        self.__try_event('on_scheduled_rooms_got', self.scheduled_rooms)
-
-    def __room_update_scheduled_reply(self, response: dict) -> None:
-        """A scheduled room has been updated.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        scheduled_room_info = response['p']
-
-        self.scheduled_rooms[self.last_updated_scheduled_room_request] = ScheduledRoom(self.last_updated_scheduled_room_request, scheduled_room_info['name'],
-                                                                        scheduled_room_info['scheduledFor'], scheduled_room_info['description'])
-
-        # on_scheduled_room_updated(ScheduledRoom)
-        self.__try_event('on_scheduled_room_updated', self.scheduled_rooms[self.last_updated_scheduled_room_request])
-
-    def __room_delete_scheduled_reply(self, response: dict) -> None:
-        """A scheduled room has been deleted.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        scheduled_room_info = response['p']
-
-        scheduled_room_param = self.scheduled_rooms[scheduled_room_info['id']]
-
-        del self.scheduled_rooms[scheduled_room_info['id']]
-
-        # on_scheduled_room_deleted(ScheduledRoom)
-        self.__try_event('on_scheduled_room_deleted', scheduled_room_param)
-
-    def __room_get_info_reply(self, response: dict) -> None:
-        """A room's info has been fetched, update room_details.
-
-        Args:
-            response (dict): The response from response_switcher.
-        """
-        assert isinstance(response, dict)
-
-        room_info = response['p']
-
-        self.room_details[room_info['id']] = Room.parse(room_info)
-
     def __room_destroyed(self, response: dict) -> None:
         """The current room has been deleted.
 
@@ -900,7 +885,6 @@ class Dogey():
 
         self.room_details = {}
         self.room_members = {}
-        self.banned_room_members = {}
         self.current_room = ''
 
         # on_room_leave(Room)
@@ -934,16 +918,26 @@ class Dogey():
         # on_deafen_changed(User, state)
         self.__try_event('on_deafen_changed', user_info, new_state)
 
-    def __room_get_top_reply(self, response: dict) -> None:
+    def __you_joined_as_speaker(self, response: dict) -> None:
+        """The bot has joined the room as a speaker, because the room had autoSpeaker or cuz we are the owner.
+
+        Args:
+            response (dict): The response from response_switcher.
+        """
         assert isinstance(response, dict)
 
-        rooms = response['p']['rooms']
+        """ We have the right response either from joining or creating rooms so this is a duplicate of the function below. """
+        asyncio.ensure_future(self.__setup_sound(response))
 
-        """ Update current room members, only way to do so. """
-        for room in rooms:
-            if room['id'] == self.current_room:
-                for member in room['peoplePreviewList']:
-                    asyncio.ensure_future(self.get_user_info(member['id']))
+    def __you_joined_as_peer(self, response: dict) -> None:
+        """The bot has joined the room as a speaker, because the room had autoSpeaker or cuz we are the owner.
+
+        Args:
+            response (dict): The response from response_switcher.
+        """
+        assert isinstance(response, dict)
+
+        asyncio.ensure_future(self.__setup_sound(response))
 
     """ Decorators """
 
@@ -980,17 +974,51 @@ class Dogey():
             func_name = name if name else func.__name__
             
             self.__commands[func_name] = Command(func, func_name, description)
-            
-            if func_name == 'help':
-                self.__has_default_help_command = False
 
             self.__log(f'Registered command: {func_name}')
 
         return wrapper(func) if func else wrapper
 
+    """ Sound """
+    async def __setup_sound(self, response: dict) -> None:
+        """Sets up sound capabilities.
+
+        Args:
+            response (dict): The response from the callee events.
+        """
+        # TODO: Finish sound, fix sctp parameters and send_transport key.
+        assert isinstance(response, dict)
+
+        #sound_info = response['d']
+        #sound_send = sound_info['sendTransportOptions']
+        #sound_recv = sound_info['recvTransportOptions']
+
+        #self.__msdevice = pyms.Device(pyms.AiortcHandler.createFactory())
+        
+        #""" Create routerRtpCapabilities. """
+        #await self.__msdevice.load(sound_info['routerRtpCapabilities'])
+        
+        #""" Create Send|Recv TransportOptions. """
+        #self.__send_transport = self.__msdevice.createSendTransport(str(uuid4()), sound_send['iceParameters'], sound_send['iceCandidates'], sound_send['dtlsParameters'])
+
+        #@self.__send_transport.on('connect')
+        #async def on_send_transport_connect(dtlsParams):
+        #    print('send_transport connected.')
+
+        #@self.__recv_transport.on('connect')
+        #async def on_recv_transport_connect(dtlsParams):
+        #   print('recv_transport connected.')
+
+        #self.__recv_transport = self.__msdevice.createRecvTransport(str(uuid4()), sound_recv['iceParameters'], sound_recv['iceCandidates'], sound_recv['dtlsParameters'])
+
+        # TODO: Add a track history list.
+        #self.__current_audio_track = MediaPlayer()
+
+        #self.__audio_producer = await self.__send_transport.produce(self.__current_audio_track, disableTrackOnPause = False, appData = {'mediaTag': '__pycache__'})
+
     """ Other """
 
-    async def __default_help_command(self, ctx: Context) -> None:
+    async def __default_help_command(self, ctx: Context, *args) -> None:
         """The default help command when one isn't registered.
 
         Args:
@@ -1008,3 +1036,5 @@ class Dogey():
                 send_content += ' | '
 
         await self.send(send_content, ctx.author.id)
+
+""" ----- END OF DOGEY ----- """

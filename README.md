@@ -2,24 +2,26 @@
 
 ## Reasons to use Dogey
 
-* ### Similar syntax to other APIs such as [discord.py](https://github.com/Rapptz/discord.py)
+* ### Easy adaptability owing to similar syntax to other famous APIs such as [discord.py](https://github.com/Rapptz/discord.py)
 
 * ### Always updated with the latest additions to dogehouse
+
+* ### High performance since less packages are imported and expensive variables are rate-limited
 
 ## Screenshots
 
 * ### The default help command of the [basic commands example](https://github.com/Shadofer/dogey/blob/pre-release/examples/basic_commands.py)
-<img src="https://i.ibb.co/gVRvsQh/dogey-help-command.png" alt="dogey-help-command">
+<img src="https://i.ibb.co/gVRvsQh/dogey-help-command.png" alt="dogey basic commands example help command">
 
 ## Installation
 
 ### Requirements
 
-* #### Any modern OS such as Windows 10, macOS, Ubuntu (Linux is preferred when contributing)
+* #### Any modern OS such as Windows 10, macOS, Ubuntu (Only Linux/macOS is supported for contributing)
 
-* #### python3
+* #### python >= 3.8
 
-* #### pip
+* #### pip3
 
 ### Guide
 
@@ -35,6 +37,6 @@
 
 ## Future plans
 
-* #### Add documentation
+* #### Create a documentation file/site
 
 * #### Upload to pypi

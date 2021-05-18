@@ -1,6 +1,6 @@
 from dogey import Dogey
 from dogey.classes import Message, User, Room, Context
-from dogey.exceptions import DogeyError
+from dogey.exceptions import DogeyCommandError
 
 dogey = Dogey(token='your token', refresh_token='your refresh token', prefix='.')
 
@@ -40,7 +40,7 @@ async def on_room_leave(room: Room):
     print(f'I\ve left: {room.name}')
 
 @dogey.event
-async def on_command_error(ctx: Context, error: DogeyError):
-    await dogey.send(error.message)
+async def on_command_error(ctx: Context, error: DogeyCommandError):
+    await dogey.send(f'{error.command_name}: {error.message}')
 
 dogey.start()

@@ -1,10 +1,10 @@
 from typing import Any, Awaitable, Dict, List, Type
 
 def assert_items(checks: Dict[Any, Type]):
-    """Duplicate of api.__assert_checks
+    """Duplicate of api.__assert_checks.
 
     Args:
-        checks (dict): The argument and the required type
+        checks (dict): The argument and the required type.
     """
     assert isinstance(checks, dict)
 
@@ -12,7 +12,7 @@ def assert_items(checks: Dict[Any, Type]):
         assert isinstance(item, check)
 
 class BotUser():
-    """The base bot instance of dogey, may be used with the new bot creation endpoint when implemented. """
+    """The basic bot instance, may be used with the new bot creation endpoint when implemented. """
 
     def __init__(self, name: str, id: str, prefix: str, muted: bool, deafened: bool):
         assert_items({name: str, id: str, prefix: str, muted: bool, deafened: bool})
@@ -43,9 +43,6 @@ class User():
         self.followers = followers
         self.following = following
 
-    def __str__(self):
-        return self.username
-
     @staticmethod
     def parse(user: dict):
         assert isinstance(user, dict)
@@ -63,6 +60,9 @@ class User():
         assert_items({id: str, username: str, display_name: str, description: str, online: bool, followers: int, following: int})
         return User(id, username, display_name, avatar_url, banner_url, description, online, followers, following)
 
+    def __str__(self):
+        return self.username
+
 class Message():
     """The basic Message instance. """
 
@@ -76,9 +76,6 @@ class Message():
         self.sent_at = sent_at
         self.is_whisper = is_whisper
         self.tokens = tokens
-
-    def __str__(self):
-        return self.content
 
     @staticmethod
     def parse(message: dict):
@@ -94,6 +91,9 @@ class Message():
         assert isinstance(tokens, list)
         return Message(id, sent_from, sent_at, is_whisper, tokens)
 
+    def __str__(self):
+        return self.content
+
 class Room:
     """ The basic Room instance. """
     
@@ -104,9 +104,6 @@ class Room:
         self.name = name
         self.description = description
         self.is_private = is_private
-
-    def __str__(self):
-        return self.name
 
     @staticmethod
     def parse(room: dict):
@@ -120,7 +117,32 @@ class Room:
         assert_items({id: str, name: str, description: str, is_private: bool})
         return Room(id, name, description, is_private)
 
+    def __str__(self):
+        return self.name
+
+class TopRoom(Room):
+    """ The basic TopRoom instance which inherits Room. """
+
+    def __init__(self, room: Room, user_ids: List[str]):
+        assert isinstance(user_ids, list)
+
+        self.room = room
+        self.user_ids = user_ids
+
+    @staticmethod
+    def parse(room: dict, users: List[str]):
+        assert isinstance(room, dict)
+        assert isinstance(users, list)
+
+        parsed_room = Room.parse(room)
+
+        assert_items({parsed_room: Room})
+        assert isinstance(users, list)
+        return TopRoom(parsed_room, users)
+
 class ScheduledRoom():
+    """ The basic ScheduledRoom instance. """
+
     def __init__(self, id: str, name: str, scheduled_for: str, description: str):
         assert_items({id: str, name: str, scheduled_for: str, description: str})
 
@@ -128,9 +150,6 @@ class ScheduledRoom():
         self.name = name
         self.scheduled_for = scheduled_for
         self.description = description
-
-    def __str__(self):
-        return self.name
 
     @staticmethod
     def parse(scheduled_room: dict):
@@ -144,8 +163,11 @@ class ScheduledRoom():
         assert_items({id: str, name: str, scheduled_for: str, description: str})
         return ScheduledRoom(id, name, scheduled_for, description)
 
+    def __str__(self):
+        return self.name
+
 class Context():
-    """The most used class of dogey, included in every command but not in events. """
+    """ The basic Context instance, expected in every command. """
 
     def __init__(self, message: Message, author: User, command_name: str, arguments: List[str]):
         assert_items({message: Message, author: User, command_name: str})
