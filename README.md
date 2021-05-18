@@ -33,7 +33,7 @@
 
 * #### You can now ```import dogey``` in any of your programs.
 
-## [Contributing](https://github.com/Shadofer/dogey/blob/testing/CONTRIBUTING.md)
+## [Contributing](https://github.com/Shadofer/dogey/blob/pre-release/CONTRIBUTING.md)
 
 ## Future plans
 
