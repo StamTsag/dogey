@@ -1,5 +1,9 @@
 # Dogey, a pythonic <a href='https://github.com/benawad/dogehouse'>dogehouse</a> API
 
+## IMPORTANT
+
+* ### As many of you already know, dogehouse is shutting down. If it stays up, I may reconsider continuing this API. Till then, I'll wait without commiting.
+
 ## Reasons to use Dogey
 
 * ### Easy adaptability owing to similar syntax to other famous APIs such as [discord.py](https://github.com/Rapptz/discord.py)

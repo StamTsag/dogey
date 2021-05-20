@@ -1,4 +1,4 @@
-""" Made by Shadofer#7312 """
+""" Made by Shadofer#7312, left until further notice on dogehouse's future. """
 
 
 """ BUILT-IN MODULES """
@@ -21,7 +21,7 @@ from inspect import getmembers, ismethod, getfullargspec
 
 """ Scheduled rooms time formatting. """
 from datetime import datetime
-from time import localtime
+from time import localtime, time
 
 """ Exception handling. """
 from sys import exc_info
@@ -30,14 +30,11 @@ from sys import exc_info
 import websockets
 from websockets.client import WebSocketClientProtocol
 
+""" Checking extras_require packages. """
+from importlib.util import find_spec
+
 
 """ 3RD-PARTY MODULES """
-
-""" Sound-related. """
-import pymediasoup as pyms
-from pymediasoup.device import Device, Transport
-
-from aiortc.contrib.media import MediaPlayer
 
 
 """ LOCAL MODULES """
@@ -46,7 +43,7 @@ from aiortc.contrib.media import MediaPlayer
 from .variables import response_events as resev
 from .variables import response_events_functions as resfunc
 from .variables import response_events_ignore as resignore
-from .variables import max_fetch_history as maxfetchhistory
+from .variables import fetch_max_history as fetchmaxhistory
 from .variables import fetch_check_rate as fetchcheckrate
 from .variables import fetch_max_timeout as fetchmaxtimeout
 
@@ -62,7 +59,7 @@ class Dogey():
     """The main Dogey client. """
     
     """ Main functions """
-    def __init__(self, token: str, refresh_token: str, prefix: str = '.', logging_enabled: bool = False):
+    def __init__(self, token: str, refresh_token: str, prefix: str = '.', logging_enabled: bool = False, performance_stats: bool = False):
         """The initializer of a Dogey client.
 
         Args:
@@ -70,8 +67,9 @@ class Dogey():
             refresh_token (str): Your bot's refresh token.
             prefix (str): The prefix for your bot's commands. Defaults to .
             logging_enabled (bool, optional): Whether or not debug logs should be output. Defaults to False.
+            performance_stats (bool, optional): Whether or not performance stats should be output, must be used with logging enabled. Only useful for testing/checking what causes delays. Defaults to False.
         """
-        self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool})
+        self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool, performance_stats: bool})
 
         """ PRIVATE VARIABLES """
 
@@ -93,16 +91,33 @@ class Dogey():
         self.__has_started: bool = False
 
         """ Indicates if __log will print to the console, can be changed later on by set_debug_state. """
-        self.__logging_enabled = logging_enabled
+        self.__logging_enabled: bool = logging_enabled
+
+        """ Indicates if command latency will be output, can be changed later on by set_performance_stats_state. Must be used in combination with logging_enabled to output. """
+        self.__performance_stats: bool = performance_stats
 
         """ Sound-related. """
-        self.__msdevice: Device = None
-        self.__send_transport: Transport = None
-        self.__recv_transport: Transport = None
-        self.__mstracks: Dict[str, str] = {}
+        self.__is_sound_supported: bool = False
 
-        """ FETCHING! (about time) """
-        self.__fetch_events: Dict[str, Any] = {}
+        sound_result = find_spec('pymediasoup')
+
+        self.__is_sound_supported = True if sound_result is not None else False
+
+        if not self.__is_sound_supported:
+            import pymediasoup as pyms
+            from pymediasoup.device import Device, Transport
+            from aiortc.contrib.media import MediaPlayer
+            self.__log('Sound isn\'t supported. Install dogey with the [sound] tag to use such capabilities.')
+            self.__msdevice: Device = None
+            self.__send_transport: Transport = None
+            self.__recv_transport: Transport = None
+            self.__mstracks: Dict[str, str] = {}
+
+        """ Fetching. """
+        self.__fetch_events: Dict[str, dict] = {}
+
+        """ Performance. """
+        self.__performance_index: Dict[str, int] = {}
 
         """ PUBLIC VARIABLES """
 
@@ -200,7 +215,6 @@ class Dogey():
         try:
             self.__loop.create_task(self.__events[event_name].func(*args, **kwargs))
         except:
-            """ Not sure if an event_error event is needed... """
             self.__log(f'Not firing {event_name}, event is not registered by the client.')
 
     def __try_command(self, ctx: Context) -> None:
@@ -225,7 +239,8 @@ class Dogey():
             final_error = CommandNotFound(ctx.command_name)
 
         except TypeError as e:
-            if len(ctx.arguments) > (len(getfullargspec(target).args) - 1): # minus Context AND args(if its a default command)
+            """ Minus Context which is what every command should expect first. """
+            if len(ctx.arguments) > (len(getfullargspec(target).args) - 1):
                 """ Too many arguments have been passed. """
                 final_error = TooManyArguments(ctx.command_name)
             
@@ -274,10 +289,11 @@ class Dogey():
         except:
             pass
 
-        """ Clean-up fetch history, technically 2 ops can't be here at the same time. """
-        if r['op'] not in self.__fetch_events and len(self.__fetch_events) == maxfetchhistory:
-            """ Delete the oldest one to preserve space. """
-            del self.__fetch_events[self.__fetch_events.items()[0]]
+
+        # TODO: Actually limit fetching, this just deletes everything.
+        if r['op'] not in self.__fetch_events and len(self.__fetch_events) == fetchmaxhistory:
+            for event in self.__fetch_events:
+                del self.__fetch_events[event]
 
         """ For fetching, replaces latest same event. """
         self.__fetch_events[r['op']] = r
@@ -298,6 +314,10 @@ class Dogey():
 
         if self.__logging_enabled:
             print(f'[DOGEY] {text}')
+
+    def __log_perf(self, text: str) -> None:
+        if self.__logging_enabled:
+            print(f'[PERFORMANCE] {text}')
 
     def __assert_items(self, checks: dict) -> None:
         """Asserts that a number of arguments are of the specified type, NOT DICTS/LISTS OR ANY SUBSCRIPTED GENERICS such as Dict[str, Any].
@@ -341,10 +361,24 @@ class Dogey():
 
         return response
 
+    def __perf_start(self, event_name: str):
+        """ Sets the performance counter, if it's allowed to do so. """
+        self.__assert_items({event_name: str})
+
+        if self.__performance_stats:
+            self.__performance_index[event_name] = time()
+
+    def __perf_end(self, event_name: str):
+        """ Prints elapsed performance latency, if it's allowed to do so. """
+        self.__assert_items({event_name: str})
+
+        if self.__performance_stats:
+            self.__log_perf(f'{event_name} took {round(time() - self.__performance_index[event_name], 2)} seconds.')
+
     """ Bot methods """
 
     def set_logging_state(self, state: bool) -> None:
-        """Sets the state of debugging, same as using the logging_enabled parameter upon client initialisation.
+        """Sets the state of debugging, same as using the logging_enabled parameter upon bot initialisation.
 
         Args:
             state (bool): The new debugging state.
@@ -352,6 +386,16 @@ class Dogey():
         self.__assert_items({state: bool})
 
         self.__logging_enabled = state
+
+    def set_performance_stats_state(self, state: bool):
+        """Sets the state of performance stats, same as using the performance_stats parameter upon bot initialisation.
+
+        Args:
+            state (bool): The new performance stats state.
+        """
+        self.__assert_items({state: bool})
+
+        self.__performance_stats = state
 
     def get_events(self) -> Dict[str, Event]:
         """Returns the USER-REGISTERED bot events, not the API ones.
@@ -384,7 +428,11 @@ class Dogey():
         """
         self.__assert_items({name: str, description: str, is_private: bool})
 
+        self.__perf_start('create_room')
+
         response = await self.__fetch('room:create', {'name': name, 'description': description, 'isPrivate': is_private}, 'room:create:reply')
+
+        self.__perf_end('create_room')
 
         room_info = response['p']
         room_id = room_info['id']
@@ -413,7 +461,11 @@ class Dogey():
         """
         self.__assert_items({id: str})
 
+        self.__perf_start('join_room')
+
         response = await self.__fetch('room:join', {'roomId': id}, 'room:join:reply')
+
+        self.__perf_end('join_room')
 
         room_info = response['p']
         room_id = room_info['id']
@@ -463,7 +515,11 @@ class Dogey():
         """
         self.__assert_items({user_id: str})
 
+        self.__perf_start('get_user_info')
+
         response = await self.__fetch('user:get_info', {'userIdOrUsername': user_id}, 'user:get_info:reply')
+
+        self.__perf_end('get_user_info')
 
         return User.parse(response['p'])
 
@@ -673,7 +729,11 @@ class Dogey():
 
         self.__assert_items({name: str, scheduled_for: datetime, description: str})
 
+        self.__perf_start('create_scheduled_room')
+
         response = await self.__fetch('room:create_scheduled', {'name': name, 'scheduledFor': str(scheduled_for), 'description': description}, 'room:create_scheduled:reply')
+
+        self.__perf_end('create_scheduled_room')
 
         scheduled_room_info = response['p']
 
@@ -691,7 +751,11 @@ class Dogey():
 
     async def get_scheduled_rooms(self) -> List[ScheduledRoom]:
         """Fetches the bot's scheduled rooms. """
+        self.__perf_start('get_scheduled_rooms')
+
         response = await self.__fetch('room:get_scheduled', {'userId': self.bot.id}, 'room:get_scheduled:reply')
+
+        self.__perf_end('get_scheduled_rooms')
 
         scheduled_rooms_info = response['p']['rooms']
 
@@ -713,7 +777,11 @@ class Dogey():
         """
         self.__assert_items({room_id: str})
 
+        self.__perf_start('delete_scheduled_room')
+
         response = await self.__fetch('room:delete_scheduled', {'roomId': room_id}, 'room:delete_scheduled:reply')
+
+        self.__perf_end('delete_scheduled_room')
 
         scheduled_room_param = self.scheduled_rooms[room_id]
 
@@ -741,7 +809,11 @@ class Dogey():
 
         self.__assert_items({room_id: str, name: str, scheduled_for: datetime, description: str})
 
+        self.__perf_start('update_scheduled_room')
+
         response = await self.__fetch('room:update_scheduled', {'id': room_id, 'name': name, 'scheduledFor': str(scheduled_for), 'description': description}, 'room:update_scheduled:reply')
+
+        self.__perf_end('update_scheduled_room')
 
         scheduled_room_info = response['p']
 
@@ -754,8 +826,12 @@ class Dogey():
 
     async def get_top_rooms(self) -> List[TopRoom]:
         """ Fetches the top rooms of dogehouse.tv. """
+        self.__perf_start('get_top_rooms')
+
         # TODO: Set normal ratelimits for fetching.
         response = await self.__fetch('room:get_top', {'cursor': 0, 'limit': 20}, 'room:get_top:reply')
+
+        self.__perf_end('get_top_rooms')
 
         top_rooms = []
 
@@ -981,11 +1057,14 @@ class Dogey():
 
     """ Sound """
     async def __setup_sound(self, response: dict) -> None:
-        """Sets up sound capabilities.
+        """Sets up sound capabilities, DOgey must be installed with the [sound] tag in order for sound to be available.
 
         Args:
             response (dict): The response from the callee events.
         """
+        if not self.__is_sound_supported:
+            return
+
         # TODO: Finish sound, fix sctp parameters and send_transport key.
         assert isinstance(response, dict)
 

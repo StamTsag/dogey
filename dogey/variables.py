@@ -8,7 +8,7 @@ response_events_functions = ['new_user_join_room', 'user_left_room', 'chat_send'
 response_events_ignore = ['pong', 'new-tokens', 'room-created', 'mod_changed', 'you_left_room']
 
 # Ratelimiting variables
-max_fetch_history = 10
+fetch_max_history = 50
 
 # Generally, anything under 0.1 is pretty fast for any use case but this provides us with the sweet spot. High values above 0.1 increase latency by ALOT.
 fetch_check_rate = 0.001

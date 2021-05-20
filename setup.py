@@ -4,13 +4,19 @@ with open('README.md', 'r') as f:
     long_description = f.read()
 
 setup(
-    name='dogey',
-    version='0.1',
-    description='A dogehouse python API',
-    author='Shadofer',
-    author_email='shadowrlrs@gmail.com',
-    packages=['dogey'],
-    install_requires=['websockets', 'pymediasoup'],
-    long_description=long_description,
-    license='MIT'
+    name = 'dogey',
+    version = '0.1',
+    description = 'A pythonic dogehouse API.',
+    long_description = long_description,
+    long_description_content_type = 'text/markdown',
+    author = 'Shadofer#7312',
+    author_email = 'shadowrlrs@gmail.com',
+    python_requires = '>=3.8.0',
+    url = 'https://github.com/Shadofer/dogey',
+    packages = ['dogey'],
+    install_requires = ['websockets'],
+    extras_require = {
+        'sound': ['pymediasoup']
+    },
+    license = 'MIT'
 )

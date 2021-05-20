@@ -43,7 +43,7 @@ async def getmyinfo(ctx: Context):
 @dogey.command(description = 'Mutes the bot, admin only.')
 async def mute(ctx: Context):
     # Prevent others from muting your bot
-    if ctx.author.username == bot_owner:
+    if ctx.author.id == bot_owner:
         await dogey.set_muted(not bot.muted)
 
         if bot.muted:
@@ -54,7 +54,7 @@ async def mute(ctx: Context):
 
 @dogey.command(description = 'Deafens the bot, admin only.')
 async def deafen(ctx: Context):
-    if ctx.author.username == bot_owner:
+    if ctx.author.id == bot_owner:
         await dogey.set_deafened(not bot.deafened)
 
         if bot.deafened:
