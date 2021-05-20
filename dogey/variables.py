@@ -1,10 +1,22 @@
 # In order to loop over responses and functions
-response_events = ['new-tokens', 'room:create:reply', 'new_user_join_room', 'user_left_room', 'chat:send', 'user:get_info:reply']
-response_events_functions = ['new_tokens', 'room_create_reply', 'new_user_join_room', 'user_left_room', 'chat_send', 'user_get_info_reply']
-response_events_ignore = ['room-created', 'you-joined-as-speaker', 'deafen_changed']
+response_events = ['new_user_join_room', 'user_left_room', 'chat:send', 'hand_raised', 'room_destroyed', 'mute_changed', 'deafen_changed', 'you-joined-as-speaker',
+                    'you-joined-as-peer']
 
-# Other
-min_log_level = 0
-max_log_level = 2
+response_events_functions = ['new_user_join_room', 'user_left_room', 'chat_send', 'hand_raised', 'room_destroyed', 'mute_changed', 'deafen_changed', 'you_joined_as_speaker',
+                            'you_joined_as_peer']
 
-exc_no_info = 'No reason provided.'
+response_events_ignore = ['pong', 'new-tokens', 'room-created', 'mod_changed', 'you_left_room']
+
+# Ratelimiting variables
+fetch_max_history = 50
+
+# Generally, anything under 0.1 is pretty fast for any use case but this provides us with the sweet spot. High values above 0.1 increase latency by ALOT.
+fetch_check_rate = 0.001
+
+fetch_max_timeout = 5
+
+""" List of events to add in the future: 
+
+# To be found...
+
+"""

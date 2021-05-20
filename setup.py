@@ -6,11 +6,17 @@ with open('README.md', 'r') as f:
 setup(
     name = 'dogey',
     version = '0.1',
-    description = 'A dogehouse python API',
-    author = 'Shadofer',
+    description = 'A pythonic dogehouse API.',
+    long_description = long_description,
+    long_description_content_type = 'text/markdown',
+    author = 'Shadofer#7312',
     author_email = 'shadowrlrs@gmail.com',
+    python_requires = '>=3.8.0',
+    url = 'https://github.com/Shadofer/dogey',
     packages = ['dogey'],
     install_requires = ['websockets'],
-    long_description = long_description,
-    license = 'Apache'
+    extras_require = {
+        'sound': ['pymediasoup']
+    },
+    license = 'MIT'
 )
