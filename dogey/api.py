@@ -103,15 +103,17 @@ class Dogey():
 
         self.__is_sound_supported = True if sound_result is not None else False
 
-        if not self.__is_sound_supported:
+        if self.__is_sound_supported:
             import pymediasoup as pyms
             from pymediasoup.device import Device, Transport
             from aiortc.contrib.media import MediaPlayer
-            self.__log('Sound isn\'t supported. Install dogey with the [sound] tag to use such capabilities.')
             self.__msdevice: Device = None
             self.__send_transport: Transport = None
             self.__recv_transport: Transport = None
             self.__mstracks: Dict[str, str] = {}
+
+        else:
+            self.__log('Sound isn\'t supported. Install dogey with the [sound] tag to use such capabilities.')
 
         """ Fetching. """
         self.__fetch_events: Dict[str, dict] = {}
