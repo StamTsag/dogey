@@ -67,7 +67,7 @@ class Dogey():
             refresh_token (str): Your bot's refresh token.
             prefix (str): The prefix for your bot's commands. Defaults to .
             logging_enabled (bool, optional): Whether or not debug logs should be output. Defaults to False.
-            performance_stats (bool, optional): Whether or not performance stats should be output, must be used with logging enabled. Only useful for testing/checking what causes delays. Defaults to False.
+            performance_stats (bool, optional): Whether or not performance stats should be output. Only useful for testing/checking what causes delays. Defaults to False.
         """
         self.__assert_items({token: str, refresh_token: str, prefix: str, logging_enabled: bool, performance_stats: bool})
 
@@ -93,7 +93,7 @@ class Dogey():
         """ Indicates if __log will print to the console, can be changed later on by set_debug_state. """
         self.__logging_enabled: bool = logging_enabled
 
-        """ Indicates if command latency will be output, can be changed later on by set_performance_stats_state. Must be used in combination with logging_enabled to output. """
+        """ Indicates if command latency will be output, can be changed later on by set_performance_stats_state. """
         self.__performance_stats: bool = performance_stats
 
         """ Sound-related. """
@@ -318,8 +318,7 @@ class Dogey():
             print(f'[DOGEY] {text}')
 
     def __log_perf(self, text: str) -> None:
-        if self.__logging_enabled:
-            print(f'[PERFORMANCE] {text}')
+        print(f'[PERFORMANCE] {text}')
 
     def __assert_items(self, checks: dict) -> None:
         """Asserts that a number of arguments are of the specified type, NOT DICTS/LISTS OR ANY SUBSCRIPTED GENERICS such as Dict[str, Any].
@@ -399,7 +398,8 @@ class Dogey():
 
         self.__performance_stats = state
 
-    def get_events(self) -> Dict[str, Event]:
+    @property
+    def events(self) -> Dict[str, Event]:
         """Returns the USER-REGISTERED bot events, not the API ones.
 
         Returns:
@@ -407,7 +407,8 @@ class Dogey():
         """
         return self.__events
 
-    def get_commands(self) -> Dict[str, Command]:
+    @property
+    def commands(self) -> Dict[str, Command]:
         """Returns the user-registered bot commands.
 
         Returns:
@@ -1107,7 +1108,7 @@ class Dogey():
         """
         send_content = ''
 
-        commands = self.get_commands()
+        commands = self.commands
         commands_len = len(commands) - 1 # index starts at 0 so
 
         for index, command in enumerate(commands.values()):
