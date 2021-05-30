@@ -27,7 +27,7 @@ async def echo(ctx: Context, *message: List[str]):
 @dogey.command(description = 'Shows the number of commands available.')
 async def command_count(ctx: Context):
     # Shows the number of bot commands
-    await dogey.send(f'Available commands: {len(dogey.get_commands())}')
+    await dogey.send(f'Available commands: {len(dogey.commands)}')
 
 @dogey.command(description = 'Echoes back some of your info.')
 async def getmyinfo(ctx: Context):
