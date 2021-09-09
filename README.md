@@ -1,4 +1,4 @@
-<p align='center'><img src='https://i.ibb.co/fnf4nst/dogey-icon.png'></p>
+<p align='center'><img src='https://i.ibb.co/ZSfs1nt/dogey-icon.png' alt='Dogey icon'></p>
 
 ![GitHub](https://img.shields.io/github/license/Shadofer/dogey) ![GitHub Repo stars](https://img.shields.io/github/stars/Shadofer/dogey?style=social) ![GitHub forks](https://img.shields.io/github/forks/Shadofer/dogey?style=social) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/Shadofer/dogey) ![Lines of code](https://img.shields.io/tokei/lines/github/Shadofer/dogey)
 
