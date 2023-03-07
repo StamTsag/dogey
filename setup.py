@@ -9,7 +9,6 @@ setup(
     description = 'A pythonic dogehouse API.',
     long_description = long_description,
     long_description_content_type = 'text/markdown',
-    author = 'Shadofer#7312',
     author_email = 'shadowrlrs@gmail.com',
     python_requires = '>=3.8.0',
     url = 'https://github.com/Shadofer/dogey',
